@@ -1,0 +1,26 @@
+{
+  "evaluation_config": {
+    "test_samples": 2,
+    "baseline_model": "llama-3.1-8b-instant (generic prompt)",
+    "finetuned_model": "llama-3.3-70b-versatile (expert legal prompt)",
+    "golden_reference": "llama-3.3-70b-versatile (generated during dataset creation)"
+  },
+  "baseline_metrics": {
+    "rouge1": 0.6043,
+    "rouge2": 0.3806,
+    "rougeL": 0.455,
+    "bleu": 18.876
+  },
+  "finetuned_metrics": {
+    "rouge1": 0.7775,
+    "rouge2": 0.6527,
+    "rougeL": 0.6861,
+    "bleu": 52.1128
+  },
+  "improvement_delta": {
+    "rouge1": 0.1732,
+    "rouge2": 0.272,
+    "rougeL": 0.231,
+    "bleu": 33.2367
+  }
+}
