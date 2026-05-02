@@ -547,7 +547,7 @@ def get_or_generate_bill_summary(bill_id, app):
         
         # 2. Check if summary exists
         if bill.summary:
-            print(f"✅ Summary found in database (generated {bill.summary.generated_at})")
+            print(f"[OK] Summary found in database (generated {bill.summary.generated_at})")
             return {
                 'summary': bill.summary.summary,
                 'summary_type': bill.summary.summary_type,
@@ -561,7 +561,7 @@ def get_or_generate_bill_summary(bill_id, app):
             return {'error': 'Bill content not available yet. Please wait for content to be scraped.'}
         
         # 4. Generate new summary (only when content exists)
-        print(f"🤖 Generating AI summary for bill...")
+        print(f"[AI] Generating AI summary for bill...")
         
         # Full summary with content analysis using API
         bill_data = bill.to_dict()
@@ -600,12 +600,12 @@ def index_all_prs_bills(app):
     This populates the database with all 938+ bills from PRS
     """
     with app.app_context():
-        print("🚀 Starting full PRS indexing...")
+        print("[START] Starting full PRS indexing...")
         
         scraper = PRSBillTrackScraper()
         prs_bills = scraper.fetch_bill_list(max_items=None)  # Fetch all bills
         
-        print(f"📊 Found {len(prs_bills)} bills on PRS")
+        print(f"[INFO] Found {len(prs_bills)} bills on PRS")
         
         new_count = 0
         updated_count = 0
@@ -642,10 +642,10 @@ def index_all_prs_bills(app):
         
         db.session.commit()
         
-        print(f"✅ Indexing complete!")
-        print(f"   📝 New bills added: {new_count}")
-        print(f"   🔄 Bills updated: {updated_count}")
-        print(f"   📊 Total bills in DB: {Bill.query.count()}")
+        print(f"[DONE] Indexing complete!")
+        print(f"   New bills added: {new_count}")
+        print(f"   Bills updated: {updated_count}")
+        print(f"   Total bills in DB: {Bill.query.count()}")
         
         return {
             'success': True,

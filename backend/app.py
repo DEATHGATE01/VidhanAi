@@ -43,10 +43,10 @@ def create_app():
 
 if __name__ == '__main__':
     app = create_app()
-    print("🚀 Starting Regulation Alert System API...")
-    print("📍 Database: backend/instance/regulation_alert.db")
-    print("🌐 API available at: http://127.0.0.1:5000/api/")
-    print("📊 Endpoints:")
+    print("[START] Starting Regulation Alert System API...")
+    print("[DB] Database: backend/instance/regulation_alert.db")
+    print("[API] API available at: http://127.0.0.1:5000/api/")
+    print("[ENDPOINTS]:")
     print("   - GET  /api/health")
     print("   - GET  /api/search?keyword=<keyword>")
     print("   - GET  /api/bills/<bill_id>")
@@ -61,8 +61,8 @@ if __name__ == '__main__':
     print("   - GET  /api/analytics/ministry")
     print("   - GET  /api/analytics/heatmap")
     print("   - GET  /api/analytics/stats")
-    print("\n✅ Server ready! Press Ctrl+C to stop.")
-    print("🔄 Auto-reload enabled - server will restart on code changes\n")
+    print("\n[OK] Server ready! Press Ctrl+C to stop.")
+    print("[DEV] Auto-reload enabled - server will restart on code changes\n")
     
     # Enable auto-reload for development
     app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=True)

@@ -145,12 +145,12 @@ export default function BillDetailsModal({ billId, onClose, onBillUpdate }) {
               >
                 🌓 Split View
               </button>
-              {billDetails.sentiment && (
+              {(billDetails.sentiment || billDetails.linked_news) && (
                 <button 
                   className={`tab-button ${activeTab === 'news' ? 'active' : ''}`}
                   onClick={() => setActiveTab('news')}
                 >
-                  📈 News & Sentiment
+                  📈 News Analysis & Sentiment
                 </button>
               )}
               {billDetails.timeline && (
@@ -324,28 +324,54 @@ export default function BillDetailsModal({ billId, onClose, onBillUpdate }) {
               )}
 
               {/* NEWS AND SENTIMENT TAB */}
-              {activeTab === 'news' && billDetails.sentiment && (
+              {activeTab === 'news' && (billDetails.sentiment || billDetails.linked_news) && (
                 <div className="bill-news-section" style={{ padding: '1rem' }}>
-                  <h3 className="pane-title" style={{ marginBottom: '1.5rem', color: '#f8fafc' }}>📈 News & Public Sentiment</h3>
+                  <h3 className="pane-title" style={{ marginBottom: '1.5rem', color: '#f8fafc' }}>📈 News Analysis & Public Sentiment</h3>
                   
-                  <div className="stats-grid" style={{ marginBottom: '2rem' }}>
-                    <div className="stat-card" style={{ background: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.3)' }}>
-                      <div className="stat-value" style={{ color: '#34d399' }}>{billDetails.sentiment.sentiment_distribution?.positive || 0}</div>
-                      <div className="stat-label">Positive</div>
+                  {billDetails.sentiment ? (
+                    <>
+                      {billDetails.sentiment.is_predicted && (
+                        <div style={{ 
+                          background: 'rgba(59, 130, 246, 0.1)', 
+                          border: '1px solid rgba(59, 130, 246, 0.2)',
+                          padding: '0.6rem 1rem',
+                          borderRadius: '10px',
+                          marginBottom: '1rem',
+                          fontSize: '0.85rem',
+                          color: '#60a5fa',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem'
+                        }}>
+                          🤖 <strong>AI Prediction:</strong> Deep content analysis pending. This sentiment is estimated based on legislative title and ministry context.
+                        </div>
+                      )}
+                      <div className="stats-grid" style={{ marginBottom: '2rem' }}>
+                        <div className="stat-card" style={{ background: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.3)' }}>
+                          <div className="stat-value" style={{ color: '#34d399' }}>{billDetails.sentiment.sentiment_distribution?.positive || 0}</div>
+                          <div className="stat-label">Positive</div>
+                        </div>
+                        <div className="stat-card" style={{ background: 'rgba(148, 163, 184, 0.1)', borderColor: 'rgba(148, 163, 184, 0.3)' }}>
+                          <div className="stat-value" style={{ color: '#94a3b8' }}>{billDetails.sentiment.sentiment_distribution?.neutral || 0}</div>
+                          <div className="stat-label">Neutral</div>
+                        </div>
+                        <div className="stat-card" style={{ background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)' }}>
+                          <div className="stat-value" style={{ color: '#f87171' }}>{billDetails.sentiment.sentiment_distribution?.negative || 0}</div>
+                          <div className="stat-label">Negative</div>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="empty-state" style={{ marginBottom: '2rem', padding: '1.5rem', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.1)' }}>
+                      <p style={{ margin: 0, color: '#94a3b8' }}>
+                        📊 <strong>Sentiment analysis unavailable:</strong> Not enough bill content has been scraped yet to perform deep linguistic analysis.
+                      </p>
                     </div>
-                    <div className="stat-card" style={{ background: 'rgba(148, 163, 184, 0.1)', borderColor: 'rgba(148, 163, 184, 0.3)' }}>
-                      <div className="stat-value" style={{ color: '#94a3b8' }}>{billDetails.sentiment.sentiment_distribution?.neutral || 0}</div>
-                      <div className="stat-label">Neutral</div>
-                    </div>
-                    <div className="stat-card" style={{ background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)' }}>
-                      <div className="stat-value" style={{ color: '#f87171' }}>{billDetails.sentiment.sentiment_distribution?.negative || 0}</div>
-                      <div className="stat-label">Negative</div>
-                    </div>
-                  </div>
+                  )}
 
                   {billDetails.linked_news && billDetails.linked_news.news_items && billDetails.linked_news.news_items.length > 0 && (
                     <div>
-                      <h4 style={{ color: '#cbd5e1', marginBottom: '1rem', fontSize: '1.1rem' }}>Related News Articles</h4>
+                      <h4 style={{ color: '#cbd5e1', marginBottom: '1rem', fontSize: '1.1rem' }}>Media & Public Coverage Analysis</h4>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                         {billDetails.linked_news.news_items.map((news, idx) => (
                           <a key={idx} href={news.url || `https://www.google.com/search?q=${encodeURIComponent(news.title + " " + (news.source || ''))}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
