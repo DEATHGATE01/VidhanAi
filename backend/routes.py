@@ -822,6 +822,7 @@ def subscribe():
         
         if existing:
             # Update existing subscription
+            existing.specific_bills = data.get('specific_bills', [])
             existing.keywords = data.get('keywords', [])
             existing.ministries = data.get('ministries', [])
             existing.email_frequency = data.get('email_frequency', 'instant')
@@ -838,6 +839,7 @@ def subscribe():
             # Create new subscription
             subscription = UserSubscription(
                 email=data['email'],
+                specific_bills=data.get('specific_bills', []),
                 keywords=data.get('keywords', []),
                 ministries=data.get('ministries', []),
                 email_frequency=data.get('email_frequency', 'instant')
@@ -845,42 +847,22 @@ def subscribe():
             db.session.add(subscription)
             db.session.commit()
             
-            # Generate welcome alerts for existing matching bills
+            # Generate welcome alerts ONLY for specifically requested bills
             welcome_alerts = []
             try:
-                # Get ALL bills in database
-                all_bills = Bill.query.all()
-                
-                print(f"[WELCOME] Generating welcome alerts for new subscriber: {subscription.email}")
-                print(f"[INFO] Checking ALL {len(all_bills)} bills in database")
-                
-                for bill in all_bills:  # Process ALL bills, no limit
-                    # Fetch content for better matching
-                    bill_text = ""
-                    if bill.content:
-                        bill_text = f"{bill.content.full_text} {str(bill.content.sections)} {str(bill.content.paragraphs)}"
+                if subscription.specific_bills:
+                    print(f"[WELCOME] Generating welcome alerts for specific bills: {subscription.specific_bills}")
                     
-                    matches = False
-                    matched_keywords = []
-                    
-                    # Check keywords
-                    if subscription.keywords:
-                        for keyword in subscription.keywords:
-                            keyword_lower = keyword.lower()
-                            if keyword_lower in bill.title.lower() or \
-                               (bill.ministry and keyword_lower in bill.ministry.lower()) or \
-                               (bill_text and keyword_lower in bill_text.lower()):
-                                matches = True
-                                matched_keywords.append(keyword)
-                    
-                    # Check ministries
-                    if subscription.ministries and bill.ministry:
-                        for ministry in subscription.ministries:
-                            if ministry.lower() in bill.ministry.lower():
-                                matches = True
-                    
-                    if matches:
-                        # Check if already notified (shouldn't happen for new subscription)
+                    requested_bills = []
+                    for bill_ref in subscription.specific_bills:
+                        bill_ref_str = str(bill_ref).strip()
+                        # Try to find by id or bill_id
+                        b = Bill.query.filter((Bill.id == bill_ref_str) | (Bill.bill_id == bill_ref_str)).first()
+                        if b and b not in requested_bills:
+                            requested_bills.append(b)
+                            
+                    for bill in requested_bills:
+                        # Check if already notified
                         existing_notif = BillNotification.query.filter_by(
                             subscription_id=subscription.id,
                             bill_id=bill.id
@@ -895,7 +877,7 @@ def subscribe():
                             notification = BillNotification(
                                 subscription_id=subscription.id,
                                 bill_id=bill.id,
-                                matched_keywords=matched_keywords,
+                                matched_keywords=["Explicit Request"],
                                 summary_sent=summary_text
                             )
                             db.session.add(notification)
@@ -908,7 +890,7 @@ def subscribe():
                                 'bill_ministry': bill.ministry,
                                 'bill_status': bill.status,
                                 'bill_url': bill.url,
-                                'matched_keywords': matched_keywords,
+                                'matched_keywords': ["Explicit Request"],
                                 'summary': summary_text,
                                 'subscription_id': subscription.id
                             })

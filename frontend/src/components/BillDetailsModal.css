@@ -5,36 +5,40 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.8);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 1000;
   padding: 20px;
   overflow-y: auto;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 /* Modal Content */
 .modal-content {
-  background: white;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 20px;
   width: 100%;
   max-width: 1200px;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  animation: modalSlideIn 0.3s ease-out;
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6), 0 0 40px rgba(139, 92, 246, 0.1);
+  animation: modalSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  color: #e2e8f0;
 }
 
 @keyframes modalSlideIn {
   from {
     opacity: 0;
-    transform: translateY(-50px);
+    transform: translateY(20px) scale(0.98);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
@@ -44,20 +48,21 @@
   justify-content: space-between;
   align-items: center;
   padding: 1.5rem 2rem;
-  border-bottom: 2px solid #f0f0f0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .modal-title {
   font-size: 1.5rem;
-  color: #333;
+  color: #f8fafc;
   margin: 0;
+  font-weight: 700;
 }
 
 .modal-close {
-  background: none;
-  border: none;
-  font-size: 2rem;
-  color: #999;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 1.5rem;
+  color: #94a3b8;
   cursor: pointer;
   padding: 0;
   width: 40px;
@@ -66,44 +71,67 @@
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  transition: all 0.3s;
+  transition: all 0.2s;
 }
 
 .modal-close:hover {
-  background: #f0f0f0;
-  color: #333;
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.4);
 }
 
 /* Bill Info Section */
 .bill-info {
   padding: 1.5rem 2rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(59, 130, 246, 0.15) 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .bill-detail-title {
   font-size: 1.8rem;
   margin-bottom: 1rem;
-  font-weight: 600;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.3;
 }
 
 .bill-detail-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
+  gap: 0.8rem;
+  margin-bottom: 1.2rem;
 }
 
-.bill-detail-meta .bill-tag {
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
-  backdrop-filter: blur(10px);
+.bill-tag {
+  background: rgba(30, 41, 59, 0.6);
+  color: #cbd5e1;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.4rem 0.8rem;
+  border-radius: 50px;
+  font-size: 0.85rem;
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.bill-tag.ministry {
+  border-color: rgba(139, 92, 246, 0.3);
+  color: #c4b5fd;
+}
+
+.bill-tag.status {
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #93c5fd;
 }
 
 .bill-date-info {
   margin: 0;
-  opacity: 0.95;
+  color: #94a3b8;
   font-size: 0.95rem;
+}
+.bill-date-info strong {
+  color: #cbd5e1;
 }
 
 /* Modal Tabs */
@@ -111,30 +139,32 @@
   display: flex;
   gap: 0.5rem;
   padding: 1rem 2rem 0;
-  border-bottom: 2px solid #f0f0f0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  overflow-x: auto;
 }
 
 .tab-button {
-  padding: 0.75rem 1.5rem;
+  padding: 0.8rem 1.5rem;
   background: transparent;
   border: none;
   border-bottom: 3px solid transparent;
-  font-size: 1rem;
-  font-weight: 500;
-  color: #666;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #94a3b8;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.2s;
+  white-space: nowrap;
 }
 
 .tab-button:hover {
-  color: #667eea;
-  background: #f8f8f8;
+  color: #e2e8f0;
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .tab-button.active {
-  color: #667eea;
-  border-bottom-color: #667eea;
-  background: #f8f8f8;
+  color: #a78bfa;
+  border-bottom-color: #8b5cf6;
+  background: rgba(139, 92, 246, 0.1);
 }
 
 /* Modal Body */
@@ -146,7 +176,7 @@
 
 /* Bill Content Section */
 .bill-content-section {
-  max-height: 500px;
+  max-height: 600px;
   overflow-y: auto;
 }
 
@@ -157,77 +187,97 @@
 }
 
 .section-item {
-  background: #f8f9fa;
-  border-radius: 10px;
+  background: rgba(30, 41, 59, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
   padding: 1.5rem;
-  border-left: 4px solid #667eea;
+  border-left: 4px solid #8b5cf6;
 }
 
 .section-title {
   font-size: 1.2rem;
-  color: #333;
+  color: #f8fafc;
   margin-bottom: 1rem;
   font-weight: 600;
 }
 
 .section-content {
-  color: #555;
+  color: #cbd5e1;
   line-height: 1.8;
 }
 
 .section-paragraph {
-  margin-bottom: 1rem;
-  text-align: justify;
+  margin-bottom: 1.2rem;
+  text-align: left;
+  font-size: 1.05rem;
 }
 
 .section-paragraph:last-child {
   margin-bottom: 0;
 }
 
+/* Paragraphs directly fallback */
+.content-text {
+  color: #cbd5e1;
+  line-height: 1.8;
+  font-size: 1.05rem;
+}
+
+.content-paragraph {
+  margin-bottom: 1.5rem;
+}
+
 /* Summary Section */
 .bill-summary-section {
-  max-height: 500px;
+  max-height: 600px;
   overflow-y: auto;
 }
 
 .summary-content {
-  background: #f8f9fa;
-  border-radius: 10px;
-  padding: 1.5rem;
+  background: rgba(30, 41, 59, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 2rem;
   line-height: 1.8;
-  color: #555;
-  border-left: 4px solid #764ba2;
+  color: #e2e8f0;
+  border-left: 4px solid #3b82f6;
+  font-size: 1.05rem;
 }
 
 .summary-placeholder {
-  color: #777;
+  color: #94a3b8;
   font-style: italic;
   margin-top: 1rem;
 }
 
 /* Empty State */
 .bill-content-section .empty-state,
-.bill-summary-section .empty-state {
+.bill-summary-section .empty-state,
+.empty-state {
   text-align: center;
-  padding: 3rem 2rem;
-  color: #999;
+  padding: 4rem 2rem;
+  color: #94a3b8;
+  background: rgba(30, 41, 59, 0.3);
+  border-radius: 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.1);
 }
 
 .external-link {
   display: inline-block;
-  margin-top: 1rem;
-  padding: 0.75rem 1.5rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  margin-top: 1.5rem;
+  padding: 0.8rem 1.8rem;
+  background: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%);
   color: white;
   text-decoration: none;
   border-radius: 50px;
-  font-weight: 500;
-  transition: transform 0.3s, box-shadow 0.3s;
+  font-weight: 600;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
 }
 
 .external-link:hover {
   transform: translateY(-2px);
-  box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 8px 25px rgba(139, 92, 246, 0.5);
 }
 
 /* Modal Footer */
@@ -236,11 +286,13 @@
   justify-content: flex-end;
   gap: 1rem;
   padding: 1.5rem 2rem;
-  border-top: 2px solid #f0f0f0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.95);
+  border-radius: 0 0 20px 20px;
 }
 
 .modal-footer .btn {
-  padding: 0.75rem 1.5rem;
+  padding: 0.8rem 1.8rem;
 }
 
 /* Scrollbar Styles */
@@ -253,21 +305,21 @@
 .modal-body::-webkit-scrollbar-track,
 .bill-content-section::-webkit-scrollbar-track,
 .bill-summary-section::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: rgba(0, 0, 0, 0.2);
   border-radius: 10px;
 }
 
 .modal-body::-webkit-scrollbar-thumb,
 .bill-content-section::-webkit-scrollbar-thumb,
 .bill-summary-section::-webkit-scrollbar-thumb {
-  background: #667eea;
+  background: rgba(255, 255, 255, 0.2);
   border-radius: 10px;
 }
 
 .modal-body::-webkit-scrollbar-thumb:hover,
 .bill-content-section::-webkit-scrollbar-thumb:hover,
 .bill-summary-section::-webkit-scrollbar-thumb:hover {
-  background: #5568d3;
+  background: rgba(255, 255, 255, 0.3);
 }
 
 /* Responsive */
@@ -311,85 +363,84 @@
   flex-wrap: wrap;
   gap: 0.75rem;
   align-items: center;
-  margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
-  border-bottom: 2px solid #f0f0f0;
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .summary-badge {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%);
   color: white;
-  padding: 0.5rem 1rem;
-  border-radius: 20px;
+  padding: 0.5rem 1.2rem;
+  border-radius: 50px;
   font-size: 0.85rem;
   font-weight: 600;
+  box-shadow: 0 2px 10px rgba(139, 92, 246, 0.2);
 }
 
 .summary-badge.sentiment {
-  border: 1px solid rgba(0,0,0,0.1);
-  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
+
 .summary-badge.sentiment.positive {
-  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-  color: #004d40;
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.3);
+  background: rgba(16, 185, 129, 0.1);
 }
+
 .summary-badge.sentiment.negative {
-  background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%);
-  color: #7f0000;
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.1);
 }
+
 .summary-badge.sentiment.neutral {
-  background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%);
-  color: #333;
+  color: #cbd5e1;
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .summary-new {
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  background: linear-gradient(135deg, #ec4899 0%, #f43f5e 100%);
   color: white;
-  padding: 0.4rem 0.8rem;
-  border-radius: 15px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  animation: pulse 2s infinite;
+  padding: 0.5rem 1rem;
+  border-radius: 50px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  animation: pulseGlow 2s infinite;
 }
 
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
-  }
+@keyframes pulseGlow {
+  0%, 100% { opacity: 1; box-shadow: 0 0 10px rgba(236, 72, 153, 0.4); }
+  50% { opacity: 0.8; box-shadow: 0 0 20px rgba(236, 72, 153, 0.7); }
 }
 
 .summary-timestamp {
-  color: #666;
-  font-size: 0.8rem;
+  color: #64748b;
+  font-size: 0.85rem;
   margin-left: auto;
 }
 
 .summary-text {
   line-height: 1.8;
-  color: #333;
-  font-size: 1rem;
-  margin-bottom: 1.5rem;
+  color: #e2e8f0;
+  font-size: 1.05rem;
 }
 
-/* Special styling for Bill Status (first h2 with 📊 emoji) */
 .summary-text h2:first-child {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border: none;
-  padding: 1rem 1.5rem;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(59, 130, 246, 0.2) 100%);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  color: #f8fafc;
+  padding: 1.2rem 1.5rem;
   border-radius: 12px;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-  margin: 0 0 1.5rem 0;
+  margin: 0 0 2rem 0;
   text-align: center;
-  font-size: 1.3rem;
+  font-size: 1.4rem;
 }
 
 .summary-text h2:first-child strong {
-  color: #ffd93d;
-  font-weight: 700;
+  color: #a78bfa;
+  font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   display: inline-block;
@@ -397,136 +448,169 @@
 }
 
 .summary-text h2 {
-  color: #667eea;
-  font-size: 1.4rem;
-  margin: 1.5rem 0 1rem 0;
-  font-weight: 600;
-  border-left: 4px solid #667eea;
-  padding-left: 1rem;
-  background: linear-gradient(90deg, rgba(102, 126, 234, 0.1) 0%, transparent 100%);
-  padding: 0.75rem 0 0.75rem 1rem;
-  border-radius: 4px;
+  color: #a78bfa;
+  font-size: 1.5rem;
+  margin: 2rem 0 1rem 0;
+  font-weight: 700;
+  border-left: 4px solid #8b5cf6;
+  background: linear-gradient(90deg, rgba(139, 92, 246, 0.1) 0%, transparent 100%);
+  padding: 0.8rem 0 0.8rem 1rem;
+  border-radius: 0 8px 8px 0;
 }
 
 .summary-text h3 {
-  color: #764ba2;
-  font-size: 1.1rem;
-  margin: 1rem 0 0.5rem 0;
+  color: #93c5fd;
+  font-size: 1.2rem;
+  margin: 1.5rem 0 0.8rem 0;
   font-weight: 600;
 }
 
 .summary-text strong {
-  color: #667eea;
-  font-weight: 600;
+  color: #f8fafc;
+  font-weight: 700;
 }
 
 .summary-text ul {
   list-style: none;
   padding-left: 0;
-  margin: 0.5rem 0;
+  margin: 1rem 0;
 }
 
 .summary-text li {
-  margin-bottom: 0.75rem;
+  margin-bottom: 1rem;
   padding-left: 1.5rem;
   position: relative;
-  line-height: 1.6;
+  line-height: 1.7;
 }
 
 .summary-text li:before {
   content: "▸";
-  color: #667eea;
+  color: #8b5cf6;
   font-weight: bold;
   position: absolute;
   left: 0;
-  font-size: 1.1rem;
+  font-size: 1.2rem;
 }
 
-/* Better formatting for nested content */
 .summary-text p {
-  margin: 0.5rem 0;
+  margin: 1rem 0;
 }
 
-/* Emoji spacing */
-.summary-text h2:first-line {
-  font-size: 1.4rem;
-}
-
-.summary-confidence {
-  margin-top: 1.5rem;
-  padding-top: 1rem;
-  border-top: 2px solid #f0f0f0;
-}
-
-.confidence-bar {
-  width: 100%;
-  height: 8px;
-  background: #f0f0f0;
-  border-radius: 10px;
-  overflow: hidden;
-  margin-bottom: 0.5rem;
-}
-
-.confidence-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-  border-radius: 10px;
-  transition: width 1s ease-out;
-}
-
-.confidence-text {
-  font-size: 0.85rem;
-  color: #666;
-  font-weight: 500;
-}
-
-/* Loading state for summary */
-.bill-summary-section .loading {
+/* Loading State */
+.loading {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 3rem;
-  gap: 1rem;
+  padding: 4rem;
+  gap: 1.5rem;
 }
 
-.bill-summary-section .loading p {
-  color: #667eea;
-  font-size: 1rem;
+.loading p {
+  color: #a78bfa;
+  font-size: 1.1rem;
   font-weight: 500;
 }
 
-/* Split View Styles */
-.split-view-body {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2rem;
+/* Email Preview Mockup */
+.email-preview-container {
+  max-width: 600px;
+  margin: 0 auto;
+  background: #ffffff; /* Real emails are usually light */
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color: #333333;
 }
 
-.split-pane {
-  background: #fff;
-  border: 1px solid #eaeaea;
-  border-radius: 12px;
-  padding: 1.5rem;
-  overflow-y: auto;
-  max-height: 500px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+.email-header {
+  background: #1e293b;
+  padding: 20px;
+  text-align: center;
+  border-bottom: 3px solid #8b5cf6;
 }
 
-.pane-title {
-  position: sticky;
-  top: -1.5rem;
-  background: #fff;
-  padding: 1rem 0;
+.email-logo {
+  font-size: 24px;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0;
+  letter-spacing: -0.5px;
+}
+
+.email-body {
+  padding: 30px;
+}
+
+.email-title {
+  font-size: 22px;
+  color: #1e293b;
   margin-top: 0;
-  border-bottom: 2px solid #f0f0f0;
-  color: #4a4a4a;
-  z-index: 10;
-  margin-bottom: 1rem;
+  margin-bottom: 15px;
+  font-weight: 700;
+  line-height: 1.3;
 }
 
-@media (max-width: 900px) {
-  .split-view-body {
-    grid-template-columns: 1fr;
-  }
+.email-meta {
+  color: #64748b;
+  font-size: 14px;
+  margin-bottom: 25px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.email-section-title {
+  color: #8b5cf6;
+  font-size: 16px;
+  font-weight: 600;
+  margin-top: 25px;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.email-summary-box {
+  background: #f8fafc;
+  border-left: 4px solid #3b82f6;
+  padding: 15px;
+  border-radius: 0 8px 8px 0;
+  margin-bottom: 25px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #334155;
+}
+
+.email-btn {
+  display: block;
+  width: max-content;
+  margin: 30px auto 10px;
+  background: #8b5cf6;
+  color: #ffffff;
+  text-decoration: none;
+  padding: 12px 25px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 16px;
+  text-align: center;
+}
+
+.email-footer {
+  background: #f1f5f9;
+  padding: 20px;
+  text-align: center;
+  font-size: 12px;
+  color: #64748b;
+  border-top: 1px solid #e2e8f0;
+}
+
+.subscribe-callout {
+  margin-top: 2rem;
+  background: rgba(139, 92, 246, 0.1);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  padding: 1.5rem;
+  border-radius: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }

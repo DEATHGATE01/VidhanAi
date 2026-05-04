@@ -45,7 +45,7 @@ export default function BillDetailsModal({ billId, onClose, onBillUpdate }) {
   // Fetch summary when Summary or Split tab is clicked
   useEffect(() => {
     const fetchSummary = async () => {
-      if ((activeTab === 'summary' || activeTab === 'split') && billId && !summary) {
+      if ((activeTab === 'summary' || activeTab === 'alert_preview') && billId && !summary) {
         try {
           setSummaryLoading(true);
           const response = await getBillSummary(billId);
@@ -105,6 +105,9 @@ export default function BillDetailsModal({ billId, onClose, onBillUpdate }) {
             <div className="bill-info">
               <h3 className="bill-detail-title">{billDetails.title}</h3>
               <div className="bill-detail-meta">
+                <span className="bill-tag" style={{background: 'rgba(59, 130, 246, 0.1)', color: '#60a5fa', border: '1px solid rgba(59, 130, 246, 0.2)'}}>
+                  🆔 ID: {billDetails.id}
+                </span>
                 {billDetails.ministry && (
                   <span className="bill-tag ministry">🏛️ {billDetails.ministry}</span>
                 )}
@@ -140,10 +143,10 @@ export default function BillDetailsModal({ billId, onClose, onBillUpdate }) {
                 🤖 AI Summary
               </button>
               <button 
-                className={`tab-button ${activeTab === 'split' ? 'active' : ''}`}
-                onClick={() => setActiveTab('split')}
+                className={`tab-button ${activeTab === 'alert_preview' ? 'active' : ''}`}
+                onClick={() => setActiveTab('alert_preview')}
               >
-                🌓 Split View
+                🔔 Alert Preview
               </button>
               {(billDetails.sentiment || billDetails.linked_news) && (
                 <button 
@@ -163,10 +166,9 @@ export default function BillDetailsModal({ billId, onClose, onBillUpdate }) {
               )}
             </div>
 
-            <div className={`modal-body ${activeTab === 'split' ? 'split-view-body' : ''}`}>
-              {(activeTab === 'content' || activeTab === 'split') && (
-                <div className={`bill-content-section ${activeTab === 'split' ? 'split-pane pane-left' : ''}`}>
-                  {activeTab === 'split' && <h3 className="pane-title">📄 Original Legal Text</h3>}
+            <div className="modal-body">
+              {activeTab === 'content' && (
+                <div className="bill-content-section">
                   {/* Debug info - remove after fixing */}
                   {console.log('Rendering content tab, billDetails:', billDetails)}
                   {console.log('Has content check:', billDetails.content && (
@@ -270,9 +272,8 @@ export default function BillDetailsModal({ billId, onClose, onBillUpdate }) {
                 </div>
               )}
 
-              {(activeTab === 'summary' || activeTab === 'split') && (
-                <div className={`bill-summary-section ${activeTab === 'split' ? 'split-pane pane-right' : ''}`}>
-                  {activeTab === 'split' && <h3 className="pane-title">🤖 AI Simplified Summary</h3>}
+              {activeTab === 'summary' && (
+                <div className="bill-summary-section">
                   {summaryLoading ? (
                     <div className="loading">
                       <div className="spinner"></div>
@@ -437,6 +438,57 @@ export default function BillDetailsModal({ billId, onClose, onBillUpdate }) {
                     ) : (
                       <div className="empty-state">No timeline events found.</div>
                     )}
+                  </div>
+                </div>
+              )}
+
+              {/* ALERT PREVIEW TAB */}
+              {activeTab === 'alert_preview' && (
+                <div className="bill-alert-preview-section">
+                  <div className="subscribe-callout" style={{ marginBottom: '2rem' }}>
+                    <div>
+                      <h3 style={{ color: '#f8fafc', marginBottom: '0.5rem', fontSize: '1.2rem' }}>Subscribe to Updates</h3>
+                      <p style={{ color: '#cbd5e1', margin: 0 }}>Get instant email alerts whenever this bill progresses or hits the news.</p>
+                    </div>
+                    <button className="btn btn-primary" onClick={() => window.location.href = `/subscribe?bill_id=${billDetails.id}`}>Subscribe Now 🔔</button>
+                  </div>
+                  
+                  <h3 style={{ color: '#94a3b8', fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'center', marginBottom: '1.5rem' }}>Example Email Alert Mockup</h3>
+                  
+                  <div className="email-preview-container">
+                    <div className="email-header">
+                      <h1 className="email-logo">⚖️ Vidhan.AI Alerts</h1>
+                    </div>
+                    <div className="email-body">
+                      <h2 className="email-title">Update: {billDetails.title}</h2>
+                      <div className="email-meta">
+                        Ministry: {billDetails.ministry || 'N/A'} • Status: <strong>{billDetails.status || 'Unknown'}</strong>
+                      </div>
+                      
+                      <div className="email-section-title">New AI Summary Generated</div>
+                      <div className="email-summary-box">
+                        {summary ? (
+                          <div dangerouslySetInnerHTML={{ 
+                            __html: summary.summary.substring(0, 400).replace(/\n/g, '<br/>') + '...'
+                          }} />
+                        ) : 'Generating AI summary...'}
+                      </div>
+                      
+                      {billDetails.sentiment && (
+                        <>
+                          <div className="email-section-title">Public Sentiment Shift</div>
+                          <div style={{ marginBottom: '20px', fontSize: '15px' }}>
+                            Current public sentiment is trending <strong>{billDetails.sentiment.sentiment_distribution?.positive > billDetails.sentiment.sentiment_distribution?.negative ? 'Positive' : 'Negative'}</strong> based on recent media coverage.
+                          </div>
+                        </>
+                      )}
+                      
+                      <a href={`/explore?q=${encodeURIComponent(billDetails.title)}`} className="email-btn">View Full Bill Details on Dashboard</a>
+                    </div>
+                    <div className="email-footer">
+                      You are receiving this because you subscribed to alerts for "{billDetails.title}".<br/>
+                      © 2026 Vidhan.AI Platform
+                    </div>
                   </div>
                 </div>
               )}

@@ -292,6 +292,7 @@ class UserSubscription(db.Model):
     email = db.Column(db.String(200), nullable=False, index=True)
     
     # Subscription preferences
+    specific_bills = db.Column(db.JSON)  # List of bill IDs the user specifically wants to track
     keywords = db.Column(db.JSON)  # List of keywords: ["animal welfare", "tax", "gaming"]
     ministries = db.Column(db.JSON)  # List of ministries to track
     is_active = db.Column(db.Boolean, default=True, index=True)
@@ -314,6 +315,7 @@ class UserSubscription(db.Model):
         return {
             'id': self.id,
             'email': self.email,
+            'specific_bills': self.specific_bills or [],
             'keywords': self.keywords or [],
             'ministries': self.ministries or [],
             'is_active': self.is_active,
