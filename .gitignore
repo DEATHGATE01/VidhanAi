@@ -94,3 +94,14 @@ desktop.ini
 *.bak
 *.backup
 *~
+
+# Phase 2 LoRA artifacts (trained weights are large; commit config + notebook, not weights)
+notebooks/lora_model/*.safetensors
+notebooks/lora_model/*.bin
+notebooks/*.zip
+
+# Ruff linter cache
+.ruff_cache/
+
+# Local chat dumps
+claude-chat.md
