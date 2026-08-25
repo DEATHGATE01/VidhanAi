@@ -5,10 +5,7 @@ pipeline_tag: text-generation
 tags:
 - base_model:adapter:unsloth/Llama-3.2-3B-Instruct-bnb-4bit
 - lora
-- sft
 - transformers
-- trl
-- unsloth
 ---
 
 # Model Card for Model ID
@@ -207,4 +204,4 @@ Carbon emissions can be estimated using the [Machine Learning Impact calculator]
 [More Information Needed]
 ### Framework versions
 
-- PEFT 0.18.1
+- PEFT 0.19.1
