@@ -105,3 +105,16 @@ notebooks/**/*.zip
 
 # Local chat dumps
 claude-chat.md
+
+# Coursework / paper source documents (not code — stay local only)
+*.docx
+PHASE1_STATUS.md
+PHASE2_STATUS.md
+plan.md
+docs/IEEE_Report.md
+docs/failure_cases.md
+
+# Generated eval outputs (regenerable by scripts/ml_pipeline/3_calculate_metrics.py)
+docs/evaluation_results.csv
+docs/metrics_summary.json
+docs/*.png
