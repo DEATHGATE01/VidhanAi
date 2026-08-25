@@ -223,12 +223,22 @@ three non-frontend follow-ups discovered during verification.
   for specific-bill subs, recent-matches table for category subs) → emailSend.
   Import into n8n, attach SMTP credential, set fromEmail, activate.
 
-**Remaining (fresh session should do):**
-0. Workflows are IMPORTED into the local n8n (v2.8.4, CLI `n8n import:workflow`).
-   User must still: attach an SMTP credential to both "Send email" nodes, set a
-   real fromEmail (placeholder `vidhanai-alerts@example.com`), and ACTIVATE both
-   workflows in the UI (activation needs the UI or an API key — CLI can't).
-   Webhook only registers once the welcome workflow is Active.
+**Status (2026-08-26): Phase D COMPLETE except one user action.**
+- Backend: bill_status migration applied; /subscribe returns recent_matches;
+  /check-new-bills detects status changes — all verified.
+- n8n: both workflows ACTIVE in local instance via API
+  (welcome `yY2WTxmoBDpZ0nBE`, alerts `8dnHGcQOtaGoghdT`); Gmail OAuth2 nodes
+  with credential pre-attached; hourly cron executing successfully.
+- Frontend: AlertsPage live at /alerts (bill/topic tabs, keyword chips,
+  ministry toggles, frequency cards) — fires the welcome webhook after
+  /api/subscribe, res.ok-checked. Build passes; end-to-end subscribe tested
+  in browser against live backend + n8n.
+
+**The ONE remaining step is a user action:** the "Gmail account" OAuth2
+credential's token is expired/revoked (execution 266 failed at Send email:
+"authorization grant ... invalid, expired, revoked"). Reconnect it in
+n8n → Settings → Credentials → Gmail account → Sign in again. After that,
+subscribing at http://localhost:5173/alerts delivers real email.
 2. Frontend AlertsPage: `AlertsPage.jsx` (tabs: Specific Bill / Category;
    email input; bill picker via `getAllBills`; keyword chips; ministry select;
    frequency instant/daily/weekly) → `POST /api/subscribe` → then POST the
