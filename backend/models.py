@@ -243,7 +243,9 @@ class BillSummary(db.Model):
     
     # Metadata
     generated_at = db.Column(db.DateTime, default=datetime.utcnow)
-    model_version = db.Column(db.String(50))  # Which AI model generated it
+    model_version = db.Column(db.String(100))  # Which AI model generated it (e.g. 'groq_groq/compound', 'local_lora_...', 'rule_based_extractive_v1')
+    guardrail_applied = db.Column(db.Boolean, default=True)  # Disclaimer appended
+    guardrail_version = db.Column(db.String(50))  # Identifier for the disclaimer/guardrail set used
     
     def __repr__(self):
         return f'<BillSummary bill={self.bill_id}>'
@@ -256,6 +258,10 @@ class BillSummary(db.Model):
             'summary': self.summary,
             'summary_type': self.summary_type,
             'confidence': self.confidence,
+            'model_version': self.model_version,
+            'guardrail_applied': self.guardrail_applied,
+            'guardrail_version': self.guardrail_version,
+            'sentiment_score': self.sentiment_score,
             'generated_at': self.generated_at.isoformat() if self.generated_at else None
         }
 
@@ -336,6 +342,9 @@ class BillNotification(db.Model):
     # Notification details
     matched_keywords = db.Column(db.JSON)  # Which keywords matched
     summary_sent = db.Column(db.Text)  # Cached summary sent in email
+    # Status snapshot at alert time — lets /check-new-bills detect status
+    # changes for specifically-tracked bills and re-alert by updating this row.
+    bill_status = db.Column(db.String(100))
     
     # Email tracking
     email_sent = db.Column(db.Boolean, default=False, index=True)
