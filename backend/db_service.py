@@ -138,15 +138,22 @@ def search_bills(keyword, app, user_id=None):
                 db.session.commit()
                 print(f"Added {len(new_bills)} new bills to database")
             
-            # Re-query with full-text search
+            # Re-query with full-text search, preserving priority order
+            exact_title_results = Bill.query.filter(
+                or_(
+                    Bill.title.ilike(f'{keyword}%'),   # Starts with keyword
+                    Bill.title.ilike(f'% {keyword} %'), # Word boundary match
+                    Bill.title.ilike(f'%{keyword}%')    # Contains keyword
+                )
+            ).all()
+
             metadata_results = Bill.query.filter(
                 or_(
-                    Bill.title.ilike(f'%{keyword}%'),
                     Bill.ministry.ilike(f'%{keyword}%'),
                     Bill.status.ilike(f'%{keyword}%')
                 )
             ).all()
-            
+
             content_results = Bill.query.join(BillContent).filter(
                 or_(
                     BillContent.full_text.ilike(f'%{keyword}%'),
@@ -154,18 +161,805 @@ def search_bills(keyword, app, user_id=None):
                     BillContent.paragraphs.cast(db.String).ilike(f'%{keyword}%')
                 )
             ).all()
-            
-            db_results = list(set(metadata_results + content_results))
-        
+
+            # Combine with priority: exact title > metadata > content
+            seen_ids = set()
+            db_results = []
+
+            for bill in exact_title_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+
+            for bill in metadata_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+
+            for bill in content_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+            # Re-query with full-text search, preserving priority order
+            exact_title_results = Bill.query.filter(
+                or_(
+                    Bill.title.ilike(f'{keyword}%'),   # Starts with keyword
+                    Bill.title.ilike(f'% {keyword} %'), # Word boundary match
+                    Bill.title.ilike(f'%{keyword}%')    # Contains keyword
+                )
+            ).all()
+
+            metadata_results = Bill.query.filter(
+                or_(
+                    Bill.ministry.ilike(f'%{keyword}%'),
+                    Bill.status.ilike(f'%{keyword}%')
+                )
+            ).all()
+
+            content_results = Bill.query.join(BillContent).filter(
+                or_(
+                    BillContent.full_text.ilike(f'%{keyword}%'),
+                    BillContent.sections.cast(db.String).ilike(f'%{keyword}%'),
+                    BillContent.paragraphs.cast(db.String).ilike(f'%{keyword}%')
+                )
+            ).all()
+
+            # Combine with priority: exact title > metadata > content
+            seen_ids = set()
+            db_results = []
+
+            for bill in exact_title_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+
+            for bill in metadata_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+
+            for bill in content_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+            # Re-query with full-text search, preserving priority order
+            exact_title_results = Bill.query.filter(
+                or_(
+                    Bill.title.ilike(f'{keyword}%'),   # Starts with keyword
+                    Bill.title.ilike(f'% {keyword} %'), # Word boundary match
+                    Bill.title.ilike(f'%{keyword}%')    # Contains keyword
+                )
+            ).all()
+
+            metadata_results = Bill.query.filter(
+                or_(
+                    Bill.ministry.ilike(f'%{keyword}%'),
+                    Bill.status.ilike(f'%{keyword}%')
+                )
+            ).all()
+
+            content_results = Bill.query.join(BillContent).filter(
+                or_(
+                    BillContent.full_text.ilike(f'%{keyword}%'),
+                    BillContent.sections.cast(db.String).ilike(f'%{keyword}%'),
+                    BillContent.paragraphs.cast(db.String).ilike(f'%{keyword}%')
+                )
+            ).all()
+
+            # Combine with priority: exact title > metadata > content
+            seen_ids = set()
+            db_results = []
+
+            for bill in exact_title_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+
+            for bill in metadata_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+
+            for bill in content_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+            # Re-query with full-text search, preserving priority order
+            exact_title_results = Bill.query.filter(
+                or_(
+                    Bill.title.ilike(f'{keyword}%'),   # Starts with keyword
+                    Bill.title.ilike(f'% {keyword} %'), # Word boundary match
+                    Bill.title.ilike(f'%{keyword}%')    # Contains keyword
+                )
+            ).all()
+
+            metadata_results = Bill.query.filter(
+                or_(
+                    Bill.ministry.ilike(f'%{keyword}%'),
+                    Bill.status.ilike(f'%{keyword}%')
+                )
+            ).all()
+
+            content_results = Bill.query.join(BillContent).filter(
+                or_(
+                    BillContent.full_text.ilike(f'%{keyword}%'),
+                    BillContent.sections.cast(db.String).ilike(f'%{keyword}%'),
+                    BillContent.paragraphs.cast(db.String).ilike(f'%{keyword}%')
+                )
+            ).all()
+
+            # Combine with priority: exact title > metadata > content
+            seen_ids = set()
+            db_results = []
+
+            for bill in exact_title_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+
+            for bill in metadata_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+
+            for bill in content_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+            # Re-query with full-text search, preserving priority order
+            exact_title_results = Bill.query.filter(
+                or_(
+                    Bill.title.ilike(f'{keyword}%'),   # Starts with keyword
+                    Bill.title.ilike(f'% {keyword} %'), # Word boundary match
+                    Bill.title.ilike(f'%{keyword}%')    # Contains keyword
+                )
+            ).all()
+
+            metadata_results = Bill.query.filter(
+                or_(
+                    Bill.ministry.ilike(f'%{keyword}%'),
+                    Bill.status.ilike(f'%{keyword}%')
+                )
+            ).all()
+
+            content_results = Bill.query.join(BillContent).filter(
+                or_(
+                    BillContent.full_text.ilike(f'%{keyword}%'),
+                    BillContent.sections.cast(db.String).ilike(f'%{keyword}%'),
+                    BillContent.paragraphs.cast(db.String).ilike(f'%{keyword}%')
+                )
+            ).all()
+
+            # Combine with priority: exact title > metadata > content
+            seen_ids = set()
+            db_results = []
+
+            for bill in exact_title_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+
+            for bill in metadata_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+
+            for bill in content_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+            # Re-query with full-text search, preserving priority order
+            exact_title_results = Bill.query.filter(
+                or_(
+                    Bill.title.ilike(f'{keyword}%'),   # Starts with keyword
+                    Bill.title.ilike(f'% {keyword} %'), # Word boundary match
+                    Bill.title.ilike(f'%{keyword}%')    # Contains keyword
+                )
+            ).all()
+
+            metadata_results = Bill.query.filter(
+                or_(
+                    Bill.ministry.ilike(f'%{keyword}%'),
+                    Bill.status.ilike(f'%{keyword}%')
+                )
+            ).all()
+
+            content_results = Bill.query.join(BillContent).filter(
+                or_(
+                    BillContent.full_text.ilike(f'%{keyword}%'),
+                    BillContent.sections.cast(db.String).ilike(f'%{keyword}%'),
+                    BillContent.paragraphs.cast(db.String).ilike(f'%{keyword}%')
+                )
+            ).all()
+
+            # Combine with priority: exact title > metadata > content
+            seen_ids = set()
+            db_results = []
+
+            for bill in exact_title_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+
+            for bill in metadata_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+
+            for bill in content_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+            # Re-query with full-text search, preserving priority order
+            exact_title_results = Bill.query.filter(
+                or_(
+                    Bill.title.ilike(f'{keyword}%'),   # Starts with keyword
+                    Bill.title.ilike(f'% {keyword} %'), # Word boundary match
+                    Bill.title.ilike(f'%{keyword}%')    # Contains keyword
+                )
+            ).all()
+
+            metadata_results = Bill.query.filter(
+                or_(
+                    Bill.ministry.ilike(f'%{keyword}%'),
+                    Bill.status.ilike(f'%{keyword}%')
+                )
+            ).all()
+
+            content_results = Bill.query.join(BillContent).filter(
+                or_(
+                    BillContent.full_text.ilike(f'%{keyword}%'),
+                    BillContent.sections.cast(db.String).ilike(f'%{keyword}%'),
+                    BillContent.paragraphs.cast(db.String).ilike(f'%{keyword}%')
+                )
+            ).all()
+
+            # Combine with priority: exact title > metadata > content
+            seen_ids = set()
+            db_results = []
+
+            for bill in exact_title_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+
+            for bill in metadata_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+
+            for bill in content_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+            # Re-query with full-text search, preserving priority order
+            exact_title_results = Bill.query.filter(
+                or_(
+                    Bill.title.ilike(f'{keyword}%'),   # Starts with keyword
+                    Bill.title.ilike(f'% {keyword} %'), # Word boundary match
+                    Bill.title.ilike(f'%{keyword}%')    # Contains keyword
+                )
+            ).all()
+
+            metadata_results = Bill.query.filter(
+                or_(
+                    Bill.ministry.ilike(f'%{keyword}%'),
+                    Bill.status.ilike(f'%{keyword}%')
+                )
+            ).all()
+
+            content_results = Bill.query.join(BillContent).filter(
+                or_(
+                    BillContent.full_text.ilike(f'%{keyword}%'),
+                    BillContent.sections.cast(db.String).ilike(f'%{keyword}%'),
+                    BillContent.paragraphs.cast(db.String).ilike(f'%{keyword}%')
+                )
+            ).all()
+
+            # Combine with priority: exact title > metadata > content
+            seen_ids = set()
+            db_results = []
+
+            for bill in exact_title_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+
+            for bill in metadata_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+
+            for bill in content_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+            # Re-query with full-text search, preserving priority order
+            exact_title_results = Bill.query.filter(
+                or_(
+                    Bill.title.ilike(f'{keyword}%'),   # Starts with keyword
+                    Bill.title.ilike(f'% {keyword} %'), # Word boundary match
+                    Bill.title.ilike(f'%{keyword}%')    # Contains keyword
+                )
+            ).all()
+
+            metadata_results = Bill.query.filter(
+                or_(
+                    Bill.ministry.ilike(f'%{keyword}%'),
+                    Bill.status.ilike(f'%{keyword}%')
+                )
+            ).all()
+
+            content_results = Bill.query.join(BillContent).filter(
+                or_(
+                    BillContent.full_text.ilike(f'%{keyword}%'),
+                    BillContent.sections.cast(db.String).ilike(f'%{keyword}%'),
+                    BillContent.paragraphs.cast(db.String).ilike(f'%{keyword}%')
+                )
+            ).all()
+
+            # Combine with priority: exact title > metadata > content
+            seen_ids = set()
+            db_results = []
+
+            for bill in exact_title_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+
+            for bill in metadata_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+
+            for bill in content_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+            # Re-query with full-text search, preserving priority order
+            exact_title_results = Bill.query.filter(
+                or_(
+                    Bill.title.ilike(f'{keyword}%'),   # Starts with keyword
+                    Bill.title.ilike(f'% {keyword} %'), # Word boundary match
+                    Bill.title.ilike(f'%{keyword}%')    # Contains keyword
+                )
+            ).all()
+
+            metadata_results = Bill.query.filter(
+                or_(
+                    Bill.ministry.ilike(f'%{keyword}%'),
+                    Bill.status.ilike(f'%{keyword}%')
+                )
+            ).all()
+
+            content_results = Bill.query.join(BillContent).filter(
+                or_(
+                    BillContent.full_text.ilike(f'%{keyword}%'),
+                    BillContent.sections.cast(db.String).ilike(f'%{keyword}%'),
+                    BillContent.paragraphs.cast(db.String).ilike(f'%{keyword}%')
+                )
+            ).all()
+
+            # Combine with priority: exact title > metadata > content
+            seen_ids = set()
+            db_results = []
+
+            for bill in exact_title_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+
+            for bill in metadata_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+
+            for bill in content_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+            # Re-query with full-text search, preserving priority order
+            exact_title_results = Bill.query.filter(
+                or_(
+                    Bill.title.ilike(f'{keyword}%'),   # Starts with keyword
+                    Bill.title.ilike(f'% {keyword} %'), # Word boundary match
+                    Bill.title.ilike(f'%{keyword}%')    # Contains keyword
+                )
+            ).all()
+
+            metadata_results = Bill.query.filter(
+                or_(
+                    Bill.ministry.ilike(f'%{keyword}%'),
+                    Bill.status.ilike(f'%{keyword}%')
+                )
+            ).all()
+
+            content_results = Bill.query.join(BillContent).filter(
+                or_(
+                    BillContent.full_text.ilike(f'%{keyword}%'),
+                    BillContent.sections.cast(db.String).ilike(f'%{keyword}%'),
+                    BillContent.paragraphs.cast(db.String).ilike(f'%{keyword}%')
+                )
+            ).all()
+
+            # Combine with priority: exact title > metadata > content
+            seen_ids = set()
+            db_results = []
+
+            for bill in exact_title_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+
+            for bill in metadata_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+
+            for bill in content_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+            # Re-query with full-text search, preserving priority order
+            exact_title_results = Bill.query.filter(
+                or_(
+                    Bill.title.ilike(f'{keyword}%'),   # Starts with keyword
+                    Bill.title.ilike(f'% {keyword} %'), # Word boundary match
+                    Bill.title.ilike(f'%{keyword}%')    # Contains keyword
+                )
+            ).all()
+
+            metadata_results = Bill.query.filter(
+                or_(
+                    Bill.ministry.ilike(f'%{keyword}%'),
+                    Bill.status.ilike(f'%{keyword}%')
+                )
+            ).all()
+
+            content_results = Bill.query.join(BillContent).filter(
+                or_(
+                    BillContent.full_text.ilike(f'%{keyword}%'),
+                    BillContent.sections.cast(db.String).ilike(f'%{keyword}%'),
+                    BillContent.paragraphs.cast(db.String).ilike(f'%{keyword}%')
+                )
+            ).all()
+
+            # Combine with priority: exact title > metadata > content
+            seen_ids = set()
+            db_results = []
+
+            for bill in exact_title_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+
+            for bill in metadata_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+
+            for bill in content_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+            # Re-query with full-text search, preserving priority order
+            exact_title_results = Bill.query.filter(
+                or_(
+                    Bill.title.ilike(f'{keyword}%'),   # Starts with keyword
+                    Bill.title.ilike(f'% {keyword} %'), # Word boundary match
+                    Bill.title.ilike(f'%{keyword}%')    # Contains keyword
+                )
+            ).all()
+
+            metadata_results = Bill.query.filter(
+                or_(
+                    Bill.ministry.ilike(f'%{keyword}%'),
+                    Bill.status.ilike(f'%{keyword}%')
+                )
+            ).all()
+
+            content_results = Bill.query.join(BillContent).filter(
+                or_(
+                    BillContent.full_text.ilike(f'%{keyword}%'),
+                    BillContent.sections.cast(db.String).ilike(f'%{keyword}%'),
+                    BillContent.paragraphs.cast(db.String).ilike(f'%{keyword}%')
+                )
+            ).all()
+
+            # Combine with priority: exact title > metadata > content
+            seen_ids = set()
+            db_results = []
+
+            for bill in exact_title_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+
+            for bill in metadata_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+
+            for bill in content_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+            # Re-query with full-text search, preserving priority order
+            exact_title_results = Bill.query.filter(
+                or_(
+                    Bill.title.ilike(f'{keyword}%'),   # Starts with keyword
+                    Bill.title.ilike(f'% {keyword} %'), # Word boundary match
+                    Bill.title.ilike(f'%{keyword}%')    # Contains keyword
+                )
+            ).all()
+
+            metadata_results = Bill.query.filter(
+                or_(
+                    Bill.ministry.ilike(f'%{keyword}%'),
+                    Bill.status.ilike(f'%{keyword}%')
+                )
+            ).all()
+
+            content_results = Bill.query.join(BillContent).filter(
+                or_(
+                    BillContent.full_text.ilike(f'%{keyword}%'),
+                    BillContent.sections.cast(db.String).ilike(f'%{keyword}%'),
+                    BillContent.paragraphs.cast(db.String).ilike(f'%{keyword}%')
+                )
+            ).all()
+
+            # Combine with priority: exact title > metadata > content
+            seen_ids = set()
+            db_results = []
+
+            for bill in exact_title_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+
+            for bill in metadata_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+
+            for bill in content_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+            # Re-query with full-text search, preserving priority order
+            exact_title_results = Bill.query.filter(
+                or_(
+                    Bill.title.ilike(f'{keyword}%'),   # Starts with keyword
+                    Bill.title.ilike(f'% {keyword} %'), # Word boundary match
+                    Bill.title.ilike(f'%{keyword}%')    # Contains keyword
+                )
+            ).all()
+
+            metadata_results = Bill.query.filter(
+                or_(
+                    Bill.ministry.ilike(f'%{keyword}%'),
+                    Bill.status.ilike(f'%{keyword}%')
+                )
+            ).all()
+
+            content_results = Bill.query.join(BillContent).filter(
+                or_(
+                    BillContent.full_text.ilike(f'%{keyword}%'),
+                    BillContent.sections.cast(db.String).ilike(f'%{keyword}%'),
+                    BillContent.paragraphs.cast(db.String).ilike(f'%{keyword}%')
+                )
+            ).all()
+
+            # Combine with priority: exact title > metadata > content
+            seen_ids = set()
+            db_results = []
+
+            for bill in exact_title_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+
+            for bill in metadata_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+
+            for bill in content_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+            # Re-query with full-text search, preserving priority order
+            exact_title_results = Bill.query.filter(
+                or_(
+                    Bill.title.ilike(f'{keyword}%'),   # Starts with keyword
+                    Bill.title.ilike(f'% {keyword} %'), # Word boundary match
+                    Bill.title.ilike(f'%{keyword}%')    # Contains keyword
+                )
+            ).all()
+
+            metadata_results = Bill.query.filter(
+                or_(
+                    Bill.ministry.ilike(f'%{keyword}%'),
+                    Bill.status.ilike(f'%{keyword}%')
+                )
+            ).all()
+
+            content_results = Bill.query.join(BillContent).filter(
+                or_(
+                    BillContent.full_text.ilike(f'%{keyword}%'),
+                    BillContent.sections.cast(db.String).ilike(f'%{keyword}%'),
+                    BillContent.paragraphs.cast(db.String).ilike(f'%{keyword}%')
+                )
+            ).all()
+
+            # Combine with priority: exact title > metadata > content
+            seen_ids = set()
+            db_results = []
+
+            for bill in exact_title_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+
+            for bill in metadata_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+
+            for bill in content_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+            # Re-query with full-text search, preserving priority order
+            exact_title_results = Bill.query.filter(
+                or_(
+                    Bill.title.ilike(f'{keyword}%'),   # Starts with keyword
+                    Bill.title.ilike(f'% {keyword} %'), # Word boundary match
+                    Bill.title.ilike(f'%{keyword}%')    # Contains keyword
+                )
+            ).all()
+
+            metadata_results = Bill.query.filter(
+                or_(
+                    Bill.ministry.ilike(f'%{keyword}%'),
+                    Bill.status.ilike(f'%{keyword}%')
+                )
+            ).all()
+
+            content_results = Bill.query.join(BillContent).filter(
+                or_(
+                    BillContent.full_text.ilike(f'%{keyword}%'),
+                    BillContent.sections.cast(db.String).ilike(f'%{keyword}%'),
+                    BillContent.paragraphs.cast(db.String).ilike(f'%{keyword}%')
+                )
+            ).all()
+
+            # Combine with priority: exact title > metadata > content
+            seen_ids = set()
+            db_results = []
+
+            for bill in exact_title_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+
+            for bill in metadata_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+
+            for bill in content_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+            # Re-query with full-text search, preserving priority order
+            exact_title_results = Bill.query.filter(
+                or_(
+                    Bill.title.ilike(f'{keyword}%'),   # Starts with keyword
+                    Bill.title.ilike(f'% {keyword} %'), # Word boundary match
+                    Bill.title.ilike(f'%{keyword}%')    # Contains keyword
+                )
+            ).all()
+
+            metadata_results = Bill.query.filter(
+                or_(
+                    Bill.ministry.ilike(f'%{keyword}%'),
+                    Bill.status.ilike(f'%{keyword}%')
+                )
+            ).all()
+
+            content_results = Bill.query.join(BillContent).filter(
+                or_(
+                    BillContent.full_text.ilike(f'%{keyword}%'),
+                    BillContent.sections.cast(db.String).ilike(f'%{keyword}%'),
+                    BillContent.paragraphs.cast(db.String).ilike(f'%{keyword}%')
+                )
+            ).all()
+
+            # Combine with priority: exact title > metadata > content
+            seen_ids = set()
+            db_results = []
+
+            for bill in exact_title_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+
+            for bill in metadata_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+
+            for bill in content_results:
+                if bill.id not in seen_ids:
+                    db_results.append(bill)
+                    seen_ids.add(bill.id)
+
+        # Apply relevance scoring to final results (initial + scraped)
+        import re
+        query_lower = keyword.strip().lower()
+        query_words = set(re.findall(r'\w+', query_lower))
+
+        def relevance_score(bill):
+            score = 0
+            title = (bill.title or '').lower()
+            bill_id = (bill.bill_id or '').lower()
+            status = (bill.status or '').lower()
+
+            # Exact phrase match in title (highest) - require word boundaries, handle singular/plural
+            # Check if all query words appear in order with word boundaries (allowing plural variations)
+            query_words_list = re.findall(r'\w+', query_lower)
+            if len(query_words_list) >= 1:
+                matched_in_order = True
+                title_words_list = re.findall(r'\w+', title)
+                q_idx = 0
+                for tw in title_words_list:
+                    if q_idx < len(query_words_list):
+                        qw = query_words_list[q_idx]
+                        if qw == tw or (qw.endswith('s') and tw == qw[:-1]) or (tw.endswith('s') and qw == tw[:-1]):
+                            q_idx += 1
+                if q_idx == len(query_words_list):
+                    score += 200  # Exact phrase match bonus (with word boundaries and plural handling)
+
+            # Word-level matches in title
+            title_words = set(re.findall(r'\w+', title))
+            word_overlap = len(query_words & title_words)
+            score += word_overlap * 15
+
+            # Fuzzy match for plurals
+            for qw in query_words:
+                for tw in title_words:
+                    if qw != tw and (qw.startswith(tw) or tw.startswith(qw)) and len(qw) > 4 and len(tw) > 4:
+                        score += 8
+
+            # Year match in title/bill_id
+            year_match = re.search(r'\b(20\d{2})\b', query_lower)
+            if year_match:
+                year = year_match.group(1)
+                if year in title or year in bill_id:
+                    score += 100
+
+            # Status preference: Passed > Lapsed > In Committee > Draft > Rules > Withdrawn
+            status_rank = {'passed': 50, 'lapsed': 30, 'in committee': 20, 'draft': 10, 'rules': 5, 'withdrawn': 1}
+            score += status_rank.get(status, 0)
+
+            # Boost "The [Name] Bill, YYYY" format
+            if re.match(r'^the\s+\w+.*bill.*\d{4}$', title):
+                score += 15
+
+            return score
+
+        db_results.sort(key=relevance_score, reverse=True)
+
         # 3. Log search (with user tracking for Big Data analytics)
         search_log = SearchHistory(
-            keyword=keyword, 
+            keyword=keyword,
             results_count=len(db_results),
             user_id=user_id  # Track user if logged in
         )
         db.session.add(search_log)
         db.session.commit()
-        
+
         return [bill.to_dict() for bill in db_results]
 
 
@@ -547,10 +1341,12 @@ def get_or_generate_bill_summary(bill_id, app):
         
         # 2. Check if summary exists
         if bill.summary:
-            print(f"[OK] Summary found in database (generated {bill.summary.generated_at})")
+            print(f"[OK] Summary found in database (generated {bill.summary.generated_at}, model={bill.summary.model_version})")
             return {
                 'summary': bill.summary.summary,
                 'summary_type': bill.summary.summary_type,
+                'model_version': bill.summary.model_version,
+                'guardrail_applied': bill.summary.guardrail_applied,
                 'generated_at': bill.summary.generated_at.isoformat(),
                 'confidence': bill.summary.confidence,
                 'source': 'database'
@@ -578,18 +1374,24 @@ def get_or_generate_bill_summary(bill_id, app):
             bill_id=bill.id,
             summary=summary_result['summary'],
             summary_type=summary_result['summary_type'],
-            confidence=summary_result.get('confidence', 0.5)
+            confidence=summary_result.get('confidence', 0.5),
+            model_version=summary_result.get('model_version'),
+            guardrail_applied=summary_result.get('guardrail_applied', True),
+            guardrail_version='v1.0',
         )
         db.session.add(bill_summary)
         db.session.commit()
-        
-        print(f"Summary saved to database")
-        
+
+        print(f"Summary saved to database (model_version={bill_summary.model_version})")
+
         return {
             'summary': summary_result['summary'],
             'summary_type': summary_result['summary_type'],
+            'model_version': summary_result.get('model_version'),
+            'guardrail_applied': summary_result.get('guardrail_applied', True),
             'generated_at': bill_summary.generated_at.isoformat(),
             'confidence': summary_result.get('confidence', 0.5),
+            'sentiment_score': summary_result.get('sentiment_score'),
             'source': 'generated'
         }
 

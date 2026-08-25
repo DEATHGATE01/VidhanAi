@@ -2,6 +2,7 @@
 Flask==3.0.0
 Flask-SQLAlchemy==3.1.1
 Flask-CORS==4.0.0
+gunicorn>=21.2.0
 
 # Web Scraping
 beautifulsoup4==4.12.2
@@ -31,9 +32,17 @@ evaluate==0.4.1
 rouge_score==0.1.2
 sacrebleu==2.4.0
 textblob==0.17.1
-peft>=0.7.0
-accelerate>=0.25.0
-bitsandbytes>=0.41.0
+
+# Local LoRA inference during evaluation (Phase 2).
+# Training itself runs on Kaggle (see notebooks/qlora_finetuning.ipynb) where
+# Unsloth is installed separately; these are needed on the local box ONLY for
+# 3_calculate_metrics.py to run the real adapter vs zero-shot baseline.
+# Uncomment the two lines below once the adapter exists and you want to run
+# local evaluation:
+# transformers>=4.40.0
+# peft>=0.10.0
+# accelerate>=0.25.0
+# bitsandbytes>=0.41.0
 
 # Development
 pytest==7.4.3

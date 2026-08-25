@@ -24,10 +24,18 @@ from apscheduler.triggers.interval import IntervalTrigger
 from flask import Flask
 
 from app import create_app
-from models import db, Bill
+from models import db, Bill, SearchHistory
 from src.scraping.prs_billtrack_scraper import PRSBillTrackScraper
 
-# Import our custom scripts
+# Import our custom scripts. These live in scripts/setup/ and are designed to be
+# run as standalone scripts (they each manipulate sys.path themselves), not as a
+# package — there are no __init__.py files under scripts/, so "from scripts.setup
+# ..." would fail. To import them here we put their directory on sys.path first,
+# mirroring the sys.path.insert idiom the scripts already use internally.
+_SCRIPTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'scripts', 'setup')
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+
 from fetch_all_bill_data import fetch_all_bill_data
 from generate_summaries_on_search import generate_summaries_for_popular_bills
 
@@ -96,22 +104,21 @@ def job_generate_popular_summaries():
 
 def job_cleanup_old_searches():
     """Job: Clean up search history older than 90 days (runs weekly)."""
-    from src.models.search_history import SearchHistory
     from datetime import timedelta
-    
+
     app = create_app()
-    
+
     with app.app_context():
         print(f"\n{'='*70}")
         print(f"🧹 [SCHEDULED JOB] Cleaning old search history - {datetime.now()}")
         print(f"{'='*70}")
-        
+
         try:
             cutoff_date = datetime.utcnow() - timedelta(days=90)
             deleted = SearchHistory.query.filter(
-                SearchHistory.searched_at < cutoff_date
+                SearchHistory.timestamp < cutoff_date
             ).delete()
-            
+
             db.session.commit()
             print(f"✅ Deleted {deleted} old search records")
             

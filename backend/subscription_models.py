@@ -1,38 +1,26 @@
-# New Models to Add to backend/models.py
+"""
+DEPRECATED — do not import from this module.
 
-class UserSubscription(db.Model):
-    """User alert subscriptions"""
-    __tablename__ = 'user_subscriptions'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(200), nullable=False, index=True)
-    keywords = db.Column(db.JSON)  # List of keywords: ["animal welfare", "tax", "gaming"]
-    ministries = db.Column(db.JSON)  # List of ministries to track
-    is_active = db.Column(db.Boolean, default=True)
-    
-    # Notification preferences
-    email_frequency = db.Column(db.String(20), default='instant')  # 'instant', 'daily', 'weekly'
-    last_notified = db.Column(db.DateTime)
-    
-    # Metadata
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+The canonical model definitions live in ``models.py``. This file historically
+duplicated ``UserSubscription`` and ``BillNotification`` with the same
+``__tablename__`` values, which would raise a SQLAlchemy "Table already defined"
+error if both modules were imported into the same process.
 
+It is kept only as a pointer to ``models.py``. To use the subscription models:
 
-class BillNotification(db.Model):
-    """Track which bills were sent to which users"""
-    __tablename__ = 'bill_notifications'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    subscription_id = db.Column(db.Integer, db.ForeignKey('user_subscriptions.id'), nullable=False)
-    bill_id = db.Column(db.Integer, db.ForeignKey('bills.id'), nullable=False)
-    
-    # Notification details
-    matched_keywords = db.Column(db.JSON)  # Which keywords matched
-    summary = db.Column(db.Text)  # Cached summary sent
-    email_sent = db.Column(db.Boolean, default=False)
-    email_sent_at = db.Column(db.DateTime)
-    email_opened = db.Column(db.Boolean, default=False)
-    
-    # Metadata
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    from models import UserSubscription, BillNotification
+"""
+import warnings
+
+warnings.warn(
+    "subscription_models is deprecated; UserSubscription and BillNotification "
+    "now live in models.py. Import them from there.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
+# Re-export the canonical models so any legacy `from subscription_models import X`
+# still resolves correctly without registering duplicate table metadata.
+from models import UserSubscription, BillNotification  # noqa: E402,F401
+
+__all__ = ["UserSubscription", "BillNotification"]
