@@ -1,0 +1,51 @@
+{
+  "name": "VidhanAI - Welcome Email on Subscribe",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "vidhanai-welcome-email",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "wf-welcome-01-webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-260, 0],
+      "webhookId": "vidhanai-welcome-email"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const body = $json.body || $json;\nconst sub = body.subscription || body;\nconst alerts = Array.isArray(body.welcome_alerts) ? body.welcome_alerts : [];\nconst recent = Array.isArray(body.recent_matches) ? body.recent_matches : [];\nif (!sub.email) throw new Error('email missing');\n\nfunction esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;'); }\nfunction fmtDate(d) { try { return d ? new Date(d).toLocaleDateString('en-IN', { day:'numeric', month:'long', year:'numeric' }) : 'Unknown'; } catch(e) { return String(d); } }\n\nlet billCards = '';\nfor (const a of alerts.slice(0, 3)) {\n  const summaryHtml = esc(a.summary).replace(/\\n/g, '<br>');\n  billCards += '<div style=\"background:#f8fafc;border:1px solid #e2e8f0;border-left:4px solid #7c3aed;border-radius:12px;padding:20px;margin-bottom:16px;\">'\n    + '<h2 style=\"margin:0 0 6px;color:#0f172a;font-size:17px;\">' + esc(a.bill_title) + '</h2>'\n    + '<p style=\"margin:0 0 12px;color:#64748b;font-size:13px;\">Ministry of ' + esc(a.bill_ministry) + ' &bull; Status: ' + esc(a.bill_status) + '</p>'\n    + '<div style=\"color:#334155;font-size:14px;line-height:1.65;\">' + summaryHtml + '</div>'\n    + (a.bill_url ? '<p style=\"margin:14px 0 0;\"><a href=\"' + a.bill_url + '\" style=\"color:#7c3aed;font-weight:600;\">Read the full bill on PRS India</a></p>' : '')\n    + '</div>';\n}\n\nlet recentSection = '';\nif (!billCards && recent.length > 0) {\n  let rows = '';\n  for (const m of recent.slice(0, 3)) {\n    const titleHtml = m.url ? '<a href=\"' + m.url + '\" style=\"color:#0f172a;font-weight:600;text-decoration:none;\">' + esc(m.title) + '</a>' : '<strong style=\"color:#0f172a;\">' + esc(m.title) + '</strong>';\n    rows += '<tr><td style=\"padding:10px 8px;border-bottom:1px solid #e2e8f0;\">' + titleHtml\n      + '<div style=\"color:#64748b;font-size:12px;margin-top:2px;\">' + esc(m.ministry) + ' &bull; ' + esc(m.status) + ' &bull; ' + fmtDate(m.introduction_date) + '</div></td></tr>';\n  }\n  recentSection = '<p style=\"color:#334155;font-size:14px;\">You will now get an email whenever a new bill matches your topics. Here are three recent examples:</p>'\n    + '<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"border-collapse:collapse;\">' + rows + '</table>';\n}\n\nconst topics = [].concat(sub.keywords || [], sub.ministries || []).join(', ') || 'your topics';\nconst subject = billCards ? 'Your VidhanAI bill tracker is live' : 'Welcome to VidhanAI alerts';\n\nconst html = '<!doctype html><html><body style=\"margin:0;padding:0;background:#eef2f7;font-family:Arial,sans-serif;\">'\n  + '<div style=\"max-width:640px;margin:0 auto;padding:24px;\">'\n  + '<div style=\"text-align:center;margin-bottom:20px;\"><span style=\"display:inline-block;background:#7c3aed;color:#fff;border-radius:12px;padding:10px 16px;font-size:18px;font-weight:700;\">VidhanAI</span></div>'\n  + '<div style=\"background:#ffffff;border-radius:16px;padding:28px;border:1px solid #e2e8f0;\">'\n  + '<h1 style=\"margin:0 0 8px;color:#0f172a;font-size:22px;\">Welcome to VidhanAI Alerts</h1>'\n  + '<p style=\"margin:0 0 18px;color:#475569;font-size:14px;line-height:1.6;\">You are now tracking <strong>' + esc(topics) + '</strong>. This inbox is your window into the Indian Parliament.</p>'\n  + billCards + recentSection\n  + (billCards || recent.length ? '' : '<p style=\"color:#334155;font-size:14px;\">No matching bills yet - you will be the first to know when one lands.</p>')\n  + '<hr style=\"border:none;border-top:1px solid #e2e8f0;margin:22px 0;\">'\n  + '<p style=\"margin:0;color:#94a3b8;font-size:12px;line-height:1.6;\">Summaries are AI-generated for educational purposes and may contain errors - always check the official bill text on PRS India.</p>'\n  + '</div></div></body></html>';\n\nreturn { json: { email: sub.email, subject, html } };"
+      },
+      "id": "wf-welcome-02-build",
+      "name": "Build welcome email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-40, 0]
+    },
+    {
+      "parameters": {
+        "fromEmail": "=vidhanai-alerts@example.com",
+        "toEmail": "={{ $json.email }}",
+        "subject": "=VidhanAI | {{ $json.subject }}",
+        "emailFormat": "html",
+        "html": "={{ $json.html }}",
+        "options": {}
+      },
+      "id": "wf-welcome-03-send",
+      "name": "Send email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [180, 0]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Build welcome email", "type": "main", "index": 0 }]] },
+    "Build welcome email": { "main": [[{ "node": "Send email", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": false
+}
