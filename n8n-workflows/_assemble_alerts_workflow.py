@@ -42,18 +42,20 @@ wf = {
         },
         {
             "parameters": {
-                "fromEmail": "vidhanai-alerts@example.com",
-                "toEmail": "={{ $json.email }}",
+                "sendTo": "={{ $json.email }}",
                 "subject": "=VidhanAI | {{ $json.subject }}",
-                "emailFormat": "html",
-                "html": "={{ $json.html }}",
+                "emailType": "html",
+                "message": "={{ $json.html }}",
                 "options": {},
             },
             "id": "wf-alerts-04",
             "name": "Send email",
-            "type": "n8n-nodes-base.emailSend",
+            "type": "n8n-nodes-base.gmail",
             "typeVersion": 2.1,
             "position": [400, 0],
+            "credentials": {
+                "gmailOAuth2": {"id": "gIKwljiKeEIPAirb", "name": "Gmail account"}
+            },
         },
     ],
     "connections": {
