@@ -831,8 +831,9 @@ def subscribe():
     }
     """
     try:
+        from flask import current_app
         data = request.json
-        
+
         if not data.get('email'):
             return jsonify({'error': 'Email is required'}), 400
         
@@ -840,7 +841,12 @@ def subscribe():
         existing = UserSubscription.query.filter_by(email=data['email']).first()
         
         if existing:
-            # Update existing subscription
+            # Update existing subscription. Newly added specific bills get the
+            # same welcome alerts as a fresh subscribe, so re-subscribing to
+            # track another bill still produces its summary email.
+            previous_bills = set(str(b) for b in (existing.specific_bills or []))
+            new_bills = [str(b) for b in data.get('specific_bills', []) if str(b) not in previous_bills]
+
             existing.specific_bills = data.get('specific_bills', [])
             existing.keywords = data.get('keywords', [])
             existing.ministries = data.get('ministries', [])
@@ -848,11 +854,60 @@ def subscribe():
             existing.is_active = True
             existing.updated_at = datetime.utcnow()
             db.session.commit()
-            
+
+            # Build welcome alerts for the newly added bills only.
+            welcome_alerts = []
+            try:
+                for bill_ref in new_bills:
+                    b = Bill.query.filter(
+                        (Bill.id == bill_ref) | (Bill.bill_id == bill_ref)
+                    ).first()
+                    if b is None:
+                        continue
+                    existing_notif = BillNotification.query.filter_by(
+                        subscription_id=existing.id, bill_id=b.id
+                    ).first()
+                    if existing_notif:
+                        continue  # already alerted for this bill
+                    summary_data = db_service.get_or_generate_bill_summary(b.id, current_app)
+                    notification = BillNotification(
+                        subscription_id=existing.id,
+                        bill_id=b.id,
+                        matched_keywords=["Explicit Request"],
+                        summary_sent=summary_data.get('summary', 'Summary not available'),
+                        bill_status=b.status,
+                    )
+                    db.session.add(notification)
+                    welcome_alerts.append({
+                        'notification_id': None,
+                        'email': existing.email,
+                        'bill_id': b.id,
+                        'bill_title': b.title,
+                        'bill_ministry': b.ministry,
+                        'bill_status': b.status,
+                        'bill_url': b.url,
+                        'matched_keywords': ["Explicit Request"],
+                        'summary': summary_data.get('summary', 'Summary not available'),
+                        'subscription_id': existing.id,
+                    })
+                if welcome_alerts:
+                    db.session.commit()
+                    for alert in welcome_alerts:
+                        notification = BillNotification.query.filter_by(
+                            subscription_id=alert['subscription_id'], bill_id=alert['bill_id']
+                        ).first()
+                        if notification:
+                            alert['notification_id'] = notification.id
+            except Exception as e:
+                print(f"[WARN] update-branch welcome alerts failed: {e}")
+
             return jsonify({
                 'success': True,
                 'message': 'Subscription updated',
-                'subscription': existing.to_dict()
+                'subscription': existing.to_dict(),
+                'welcome_alerts_count': len(welcome_alerts),
+                'welcome_alerts': welcome_alerts,
+                'recent_matches': [],
             }), 200
         else:
             # Create new subscription
@@ -897,7 +952,8 @@ def subscribe():
                                 subscription_id=subscription.id,
                                 bill_id=bill.id,
                                 matched_keywords=["Explicit Request"],
-                                summary_sent=summary_text
+                                summary_sent=summary_text,
+                                bill_status=bill.status,
                             )
                             db.session.add(notification)
                             

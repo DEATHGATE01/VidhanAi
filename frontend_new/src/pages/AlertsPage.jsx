@@ -101,17 +101,19 @@ export default function AlertsPage() {
         const m = (data.recent_matches || []).length
         // Welcome email is best-effort: the subscription is already saved,
         // so an unreachable n8n must never surface as an error.
-        const emailSent = await triggerWelcomeEmail(data)
+        const emailSent = n > 0 || m > 0 ? await triggerWelcomeEmail(data) : false
         setSuccess({
           billTracked: n > 0,
           message:
             n > 0
               ? `Tracking "${data.welcome_alerts[0].bill_title}". ${emailSent ? 'A welcome email with its summary is on the way to ' + email.trim() + '.' : 'Could not reach the mail service for the welcome email.'}`
-              : m > 0
-                ? `Subscribed! ${emailSent ? `A welcome email with ${m} recent matching bills is on the way to ${email.trim()}.` : 'Could not reach the mail service for the welcome email.'} You'll get an alert whenever a new bill matches.`
-                : emailSent
-                  ? `Subscribed! Confirmation email sent to ${email.trim()}.`
-                  : `Subscribed! You'll get an alert whenever a new bill matches your topics.`,
+              : mode === 'bill'
+                ? 'You are already tracking this bill — the summary email was sent when you first added it, and status-change alerts stay active.'
+                : m > 0
+                  ? `Subscribed! ${emailSent ? `A welcome email with ${m} recent matching bills is on the way to ${email.trim()}.` : 'Could not reach the mail service for the welcome email.'} You'll get an alert whenever a new bill matches.`
+                  : emailSent
+                    ? `Subscribed! Confirmation email sent to ${email.trim()}.`
+                    : `Subscribed! You'll get an alert whenever a new bill matches your topics.`,
         })
       } else {
         setError(data.error || 'Subscription failed')
