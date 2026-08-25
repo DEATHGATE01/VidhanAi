@@ -33,8 +33,8 @@ Tailwind CSS 4 frontend · Groq LLM API (`groq/compound`) · n8n workflows for a
 VidhanAi-main/
 ├── CLAUDE.md                  ← you are here (session instructions)
 ├── README.md                  ← public-facing overview (mostly accurate)
-├── PHASE1_STATUS.md           ← reproducibility/honesty fixes record
-├── PHASE2_STATUS.md           ← real QLoRA training plan + status
+├── PHASE1_STATUS.md           ← reproducibility fixes record (local-only, gitignored)
+├── PHASE2_STATUS.md           ← real QLoRA training plan (local-only, gitignored)
 ├── start.bat / start.ps1      ← Windows launchers (backend :5000 + frontend :3000)
 ├── render.yaml                ← Render.com deploy blueprint (backend)
 ├── vercel.json                ← Vercel deploy config (frontend)
