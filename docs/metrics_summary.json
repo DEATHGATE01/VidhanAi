@@ -1,26 +1,83 @@
 {
   "evaluation_config": {
-    "test_samples": 2,
-    "baseline_model": "llama-3.1-8b-instant (generic prompt)",
-    "finetuned_model": "llama-3.3-70b-versatile (expert legal prompt)",
-    "golden_reference": "llama-3.3-70b-versatile (generated during dataset creation)"
+    "test_samples": 5,
+    "baseline_model": "unsloth/Llama-3.2-3B-Instruct (zero-shot, expert prompt)",
+    "finetuned_model": "LoRA-on-unsloth/Llama-3.2-3B-Instruct (r=16, alpha=16, lr=2e-4)",
+    "adapter_dir": "/kaggle/input/datasets/deathgate99/lora-model/lora_model",
+    "golden_reference": "groq/compound (expert legal prompt) \u2014 see docs/metrics_summary.json",
+    "bootstrap_resamples": 1000,
+    "ran_at": "2026-08-20T16:15:17Z"
   },
   "baseline_metrics": {
-    "rouge1": 0.6043,
-    "rouge2": 0.3806,
-    "rougeL": 0.455,
-    "bleu": 18.876
+    "rouge1": 0.5125,
+    "rouge2": 0.262,
+    "rougeL": 0.3645,
+    "bleu": 10.5814
   },
   "finetuned_metrics": {
-    "rouge1": 0.7775,
-    "rouge2": 0.6527,
-    "rougeL": 0.6861,
-    "bleu": 52.1128
+    "rouge1": 0.5368,
+    "rouge2": 0.2657,
+    "rougeL": 0.3525,
+    "bleu": 13.2046
   },
   "improvement_delta": {
-    "rouge1": 0.1732,
-    "rouge2": 0.272,
-    "rougeL": 0.231,
-    "bleu": 33.2367
+    "rouge1": 0.0243,
+    "rouge2": 0.0037,
+    "rougeL": -0.012,
+    "bleu": 2.6232
+  },
+  "bootstrap": {
+    "baseline": {
+      "rouge1": {
+        "mean": 0.5104,
+        "ci_low": 0.4247,
+        "ci_high": 0.5914,
+        "median": 0.5117
+      },
+      "rouge2": {
+        "mean": 0.2606,
+        "ci_low": 0.1717,
+        "ci_high": 0.3484,
+        "median": 0.262
+      },
+      "rougeL": {
+        "mean": 0.363,
+        "ci_low": 0.2538,
+        "ci_high": 0.4751,
+        "median": 0.3645
+      },
+      "bleu": {
+        "mean": 11.3738,
+        "ci_low": 4.7865,
+        "ci_high": 21.3741,
+        "median": 10.5768
+      }
+    },
+    "finetuned": {
+      "rouge1": {
+        "mean": 0.5357,
+        "ci_low": 0.4637,
+        "ci_high": 0.6114,
+        "median": 0.5368
+      },
+      "rouge2": {
+        "mean": 0.2661,
+        "ci_low": 0.2088,
+        "ci_high": 0.3424,
+        "median": 0.2628
+      },
+      "rougeL": {
+        "mean": 0.3513,
+        "ci_low": 0.2789,
+        "ci_high": 0.425,
+        "median": 0.3525
+      },
+      "bleu": {
+        "mean": 14.4134,
+        "ci_low": 5.048,
+        "ci_high": 26.1892,
+        "median": 13.2389
+      }
+    }
   }
 }

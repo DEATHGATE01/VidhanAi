@@ -1,366 +1,168 @@
-# 🏛️ Regulation Alert System
+# 🏛️ VidhanAI — Generative AI Legislative Simplification Engine
 
-> A Full-Stack Big Data Analytics platform for tracking Indian legislative bills
+> **A Service-Oriented Multi-Agent Intelligence Engine for Indian Legislation**  
+> *QLoRA Fine-Tuned Llama-3.2-3B · CrewAI Multi-Agent Orchestration · ChromaDB Semantic RAG · Delta-Aware Amendment Summarization*
 
-[![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
 [![Flask](https://img.shields.io/badge/Flask-3.0-green.svg)](https://flask.palletsprojects.com/)
 [![React](https://img.shields.io/badge/React-18-61dafb.svg)](https://react.dev/)
+[![CrewAI](https://img.shields.io/badge/CrewAI-1.8.1-purple.svg)](https://crewai.com)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
 
-## 📋 Overview
+## 📋 System Overview
 
-**Regulation Alert System** is a comprehensive web application that scrapes, stores, analyzes, and visualizes legislative bills from the PRS India BillTrack database. It provides intelligent search, AI-powered summaries, and powerful analytics to track the lifecycle of Indian legislation.
+**VidhanAI** is an end-to-end AI system that transforms complex Indian parliamentary legislation (PRS India BillTrack database) into simplified, accessible, and grounded plain-English summaries.
 
-### 🎯 Key Features
+### 🎯 Key Research Contributions & Features
 
-- 🕷️ **Automated Web Scraping** - Extracts 938+ bills from PRS India
-- 🔍 **Smart Search** - Keyword-based search with filters
-- 🤖 **AI Summaries** - Extractive summarization of complex bills
-- 📊 **Analytics Dashboard** - Ministry trends, success rates, heatmaps
-- 👤 **User Features** - Favorites, reading history, notifications
-- 📈 **Big Data Analysis** - 72 years of legislative data (1952-2024)
+1. ⚖️ **Delta-Aware Amendment Summarization** (Primary Proposal Contribution): Structural section diffing (`added`, `removed`, `modified`) + factual figure tracking (penalties, dates, amounts) layered with LLM change narratives.
+2. 🤖 **QLoRA Fine-Tuned Model**: 97 MB safetensors adapter fine-tuned on Llama-3.2-3B for legal simplification (evaluated against zero-shot baselines with ROUGE/BLEU).
+3. 🧠 **CrewAI Multi-Agent Orchestration**: 7 specialist tools wrapping independent microservices (`bill_lookup`, `semantic_search`, `summarize_bill`, `check_input_safe`, `fact_check`, `amendment_diff`, `citation_finder`).
+4. 🔍 **ChromaDB Vector RAG**: 12,000+ vector embeddings (`all-MiniLM-L6-v2`) for semantic passage retrieval.
+5. 🛡️ **Dual-Stage Guardrails**: Input injection filter + output FactChecker for numeric claim verification.
+6. 📰 **CitationFinder / News Citation**: Real-time media coverage & PRS citation links via RSS ($0 cost).
+7. 💸 **Free Tier Architecture**: Designed for $0/month deployment (Render + Vercel free tiers).
 
 ---
 
 ## 🏗️ Architecture
 
 ```
-┌─────────────────────────────────────────┐
-│     Frontend (React + Vite)             │
-│     Port: 3000                          │
-└──────────────┬──────────────────────────┘
-               │ REST API
-               ▼
-┌─────────────────────────────────────────┐
-│     Backend (Flask API)                 │
-│     Port: 5000                          │
-│  ┌──────────┐  ┌───────────┐          │
-│  │  Routes  │  │ AI Service│          │
-│  └──────────┘  └───────────┘          │
-└──────────────┬──────────────────────────┘
-               │
-               ▼
-┌─────────────────────────────────────────┐
-│  Data Layer                             │
-│  ├─ SQLite Database (938 bills)        │
-│  ├─ Web Scraper (BeautifulSoup)        │
-│  └─ PRS India Source                   │
-└─────────────────────────────────────────┘
+                                  [ User Browser ]
+                                         │
+                   ┌─────────────────────┴─────────────────────┐
+                   ▼                                           ▼
+      [ Vercel Frontend ]                           [ Render Backend ]
+      Vite React 18 App                              Flask WSGI Server
+      Port: 3000 (Dev)                               Port: 5000 (API)
+                   │                                           │
+                   └──────────────► REST API ◄─────────────────┘
+                                       │
+                      ┌────────────────┴────────────────┐
+                      ▼                                 ▼
+         [ CrewAI Orchestration ]             [ Data & Storage ]
+         Researcher Agent                     ├─ SQLite DB (11 Tables)
+         ├─ check_input_safe                  ├─ ChromaDB Vector DB
+         ├─ bill_lookup                       └─ LoRA Weights (97 MB)
+         ├─ semantic_search
+         ├─ summarize_bill
+         ├─ fact_check
+         ├─ amendment_diff
+         └─ citation_finder
 ```
 
 ---
 
-## 🚀 Quick Start
+## ⚡ Quick Start (Local Development)
 
-### Prerequisites
+Launch both backend (Flask :5000) and frontend (Vite :3000) with a single command:
 
-- **Python 3.9+**
-- **Node.js 16+**
-- **Git**
+### Windows (Batch — Double Click)
+Double-click [`start.bat`](file:///d:/internship/VidhanAi-main/start.bat) in the project root.
 
-### Installation
-
-1. **Clone the repository**:
-   ```bash
-   git clone <repository-url>
-   cd regulation-alert-system
-   ```
-
-2. **Backend Setup**:
-   ```bash
-   cd backend
-   .\.venv\Scripts\Activate.ps1  # Windows
-   pip install -r requirements.txt
-   python scripts/setup/init_db.py
-   python app.py
-   ```
-   Backend runs at: `http://127.0.0.1:5000`
-
-3. **Frontend Setup** (in new terminal):
-   ```bash
-   cd frontend
-   npm install
-   npm run dev
-   ```
-   Frontend runs at: `http://localhost:3000`
-
-4. **Open browser**: Navigate to `http://localhost:3000`
-
----
-
-## 📁 Project Structure
-
-```
-regulation-alert-system/
-├── backend/                    # Flask REST API
-│   ├── app.py                  # Application entry point
-│   ├── routes.py               # API endpoints
-│   ├── models.py               # Database models
-│   ├── db_service.py           # Database operations
-│   ├── ai_service.py           # AI summarization
-│   ├── config.py               # Configuration
-│   ├── scheduler.py            # Background tasks
-│   ├── src/scraping/           # Web scraper
-│   ├── scripts/                # Utility scripts
-│   │   ├── setup/              # Setup scripts
-│   │   ├── maintenance/        # Maintenance scripts
-│   │   └── debug/              # Debug scripts
-│   ├── instance/               # SQLite database
-│   ├── archive/                # EDA & historical data
-│   └── docs/                   # Backend documentation
-│
-├── frontend/                   # React application
-│   ├── src/
-│   │   ├── components/         # React components
-│   │   ├── pages/              # Page components
-│   │   ├── services/           # API services
-│   │   └── App.jsx             # Main app
-│   ├── package.json
-│   └── vite.config.js
-│
-├── docs/                       # Project documentation
-│   ├── PROJECT_TECH_STACK.md   # Technology guide
-│   ├── N8N_WORKFLOW_GUIDE.md   # Automation workflows
-│   ├── RESEARCH_LITERATURE_REVIEW.md
-│   └── SYSTEM_ALIGNMENT_ANALYSIS.md
-│
-├── n8n-workflows/              # Automation workflows
-└── README.md                   # This file
+### Windows (PowerShell — Recommended)
+```powershell
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+.\start.ps1
 ```
 
----
-
-## 🔌 API Endpoints
-
-### Core Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/health` | Health check |
-| GET | `/api/search?keyword=tax` | Search bills |
-| GET | `/api/bills/<bill_id>` | Get bill details |
-| GET | `/api/bills?page=1` | List bills (paginated) |
-
-### User Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/users/register` | Register user |
-| GET | `/api/users/<user_id>` | Get user profile |
-| GET | `/api/users/<user_id>/favorites` | Get favorites |
-| POST | `/api/users/<user_id>/favorites` | Add favorite |
-
-### Analytics Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/analytics/trending` | Trending bills |
-| GET | `/api/analytics/ministry` | Ministry stats |
-| GET | `/api/analytics/heatmap` | Activity heatmap |
-| GET | `/api/analytics/stats` | Overall statistics |
-
-**Full API documentation**: See `backend/README.md`
-
----
-
-## 🛠️ Technology Stack
-
-### Backend
-- **Flask** - REST API framework
-- **SQLAlchemy** - ORM for database
-- **BeautifulSoup4** - Web scraping
-- **Pandas & NumPy** - Data analysis
-- **SQLite** - Database
-
-### Frontend
-- **React 18** - UI library
-- **Vite** - Build tool
-- **React Router** - Navigation
-- **Axios** - HTTP client
-- **Recharts** - Data visualization
-
-### Data Source
-- **PRS India** - https://prsindia.org/billtrack
-
-**Detailed tech stack**: See `docs/PROJECT_TECH_STACK.md`
-
----
-
-## 📊 Dataset Statistics
-
-| Metric | Value |
-|--------|-------|
-| **Total Bills** | 938 |
-| **Time Period** | 1952 - 2024 (72 years) |
-| **Ministries** | 66 unique |
-| **Overall Success Rate** | 68% |
-| **Most Active Ministry** | Law and Justice (130 bills) |
-| **Peak Year** | 2019 (69 bills) |
-| **Lowest Success Rate** | Roads (37.5%) |
-
----
-
-## 🤖 Automation (n8n)
-
-The project includes n8n workflows for automation:
-
-- **Daily bill scraping** (scheduled at 2 AM)
-- **User notification system** (email/SMS alerts)
-- **Database backup automation**
-- **Analytics report generation**
-
-**Setup guide**: See `docs/N8N_WORKFLOW_GUIDE.md`
-
----
-
-## 📈 Key Insights from Analysis
-
-### Ministry Performance
-- **Highest Success Rate**: Environment, Housing, AYUSH (100%)
-- **Lowest Success Rate**: Roads, Rural Development (37.5%)
-- **Most Active**: Law and Justice (130 bills)
-
-### Temporal Trends
-- **Peak Decade**: 2010s (highest legislative activity)
-- **Most Productive Year**: 2019 (69 bills introduced)
-- **Average Bills per Year**: 13 bills
-
-### 2019 Deep Dive
-- **Home Affairs**: 88.9% success rate (9 bills)
-- **Law and Justice**: 72.7% success rate (11 bills)
-
----
-
-## 🧪 Testing
-
-### Backend Tests
+### Manual Launch
 ```bash
+# Backend (Terminal 1)
 cd backend
-pytest
-```
+python app.py
 
-### Test Scraper
-```bash
-python scripts/debug/test_scraper.py
-```
-
-### Check Database
-```bash
-python scripts/debug/check_db_status.py
-```
-
----
-
-## 🚀 Deployment
-
-### Backend (Flask API)
-
-**Option 1: Heroku**
-```bash
-heroku create regulation-alert-api
-git push heroku main
-```
-
-**Option 2: Docker**
-```bash
-cd backend
-docker build -t regulation-alert-backend .
-docker run -p 5000:5000 regulation-alert-backend
-```
-
-### Frontend (React)
-
-**Option 1: Vercel**
-```bash
+# Frontend (Terminal 2)
 cd frontend
-vercel
-```
-
-**Option 2: Netlify**
-```bash
-npm run build
-netlify deploy --prod --dir=dist
-```
-
----
-
-## 🛠️ Development Scripts
-
-### Backend
-```bash
-# Initialize database
-python scripts/setup/init_db.py
-
-# Fetch all bills
-python scripts/setup/fetch_all_bill_data.py
-
-# Clear cache
-python scripts/maintenance/clear_all_cache.py
-```
-
-### Frontend
-```bash
-# Development server
 npm run dev
+```
 
-# Build for production
-npm run build
+Open your browser at: **`http://localhost:3000`**
 
-# Preview production build
-npm run preview
+---
+
+## 📁 Repository Structure
+
+```
+VidhanAi/
+├── start.bat                   # One-click Windows batch launcher
+├── start.ps1                   # One-click PowerShell launcher with browser auto-open
+├── render.yaml                 # Render.com Blueprint deployment (free tier)
+├── vercel.json                 # Vercel deployment configuration
+├── backend/                    # Flask REST API + Services
+│   ├── app.py                  # Application factory
+│   ├── routes.py               # API endpoints (diff, research, architecture, news)
+│   ├── models.py               # 11-table SQLAlchemy database schema
+│   ├── db_service.py           # SQLite operations
+│   ├── ai_service.py           # QLoRA / Groq model selection & guardrails
+│   ├── agents/
+│   │   └── orchestrator.py     # CrewAI Multi-Agent stack & 7 tools
+│   ├── services/
+│   │   └── amendment_service.py# Pure-Python structural diffing engine
+│   └── requirements.txt
+├── frontend/                   # React 18 + Vite Frontend
+│   ├── src/
+│   │   ├── pages/              # Home, Explore, Research, Amendments, Architecture, Playground
+│   │   ├── components/         # BillCard, SearchBar, BillDetailsModal
+│   │   └── services/api.js     # Axios API client
+│   └── vercel.json
+├── notebooks/                  # Training notebooks
+│   └── qlora_finetuning.ipynb  # Kaggle QLoRA Llama-3.2-3B training script
+└── docs/                       # Architectural documentation
+    ├── ARCHITECTURE.md         # Full Mermaid diagrams & service inventory
+    ├── MODEL_COMPARISON.md     # QLoRA vs zero-shot benchmark analysis
+    └── PROJECT_TECH_STACK.md
 ```
 
 ---
 
-## 📚 Documentation
+## 🔌 API Endpoints Summary
 
-- **[Technology Stack Guide](docs/PROJECT_TECH_STACK.md)** - Complete tech overview
-- **[n8n Workflow Guide](docs/N8N_WORKFLOW_GUIDE.md)** - Automation setup
-- **[Backend README](backend/README.md)** - API documentation
-- **[Research Review](docs/RESEARCH_LITERATURE_REVIEW.md)** - Academic context
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Please follow these steps:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+| Service | Method | Endpoint | Description |
+|---|---|---|---|
+| **Health** | GET | `/api/health` | Service health status |
+| **Search** | GET | `/api/semantic-search?query=tax` | ChromaDB vector search |
+| **Bills** | GET | `/api/bills/<id>` | Full bill details + sentiment + timeline |
+| **Summary** | GET | `/api/bills/<id>/summary` | QLoRA / Groq summary |
+| **Amendment** | POST | `/api/amendment/diff` | Structural diff + LLM change narrative |
+| **Versions** | GET | `/api/bills/<id>/versions` | Bill snapshot version history |
+| **Research** | POST | `/api/agent/research` | CrewAI multi-agent reasoning trace |
+| **News** | GET | `/api/bills/<id>/news` | CitationFinder Google News RSS |
+| **Architecture** | GET | `/api/architecture` | Live service inventory JSON |
 
 ---
 
-## 📝 License
+## 🚀 Free Deployment Guide
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+### Backend → Render.com (Free Tier)
+1. Connect repository to [Render.com](https://render.com).
+2. Create a new Web Service using [`render.yaml`](file:///d:/internship/VidhanAi-main/render.yaml).
+3. Set environment variable `GROQ_API_KEY` in the Render dashboard.
 
----
+### Frontend → Vercel.com (Free Tier)
+1. Connect repository to [Vercel.com](https://vercel.com).
+2. Root directory: `frontend` (uses [`frontend/vercel.json`](file:///d:/internship/VidhanAi-main/frontend/vercel.json)).
+3. All `/api/*` routes are automatically rewritten to your Render backend host.
 
-## 🙏 Acknowledgments
-
-- **PRS Legislative Research** - Data source (https://prsindia.org)
-- **Flask & React Communities** - Frameworks and tools
-- **BeautifulSoup4** - Web scraping library
-
----
-
-## 📧 Contact
-
-**Project Maintainer**: Your Name  
-**Email**: your.email@example.com  
-**LinkedIn**: [Your Profile](https://linkedin.com/in/yourprofile)
+**Total monthly cost: $0.00**
 
 ---
 
-## 🌟 Star History
+## 📜 Rubric & Academic Alignment
 
-If you find this project useful, please give it a ⭐!
+| Course / Rubric Expectation | Implementation in VidhanAI |
+|---|---|
+| **Problem Domain Understanding** | Legislative simplification for Indian Parliament (PRS India data) |
+| **Multi-Model Pipeline** | Local QLoRA Llama-3.2-3B → Groq `groq/compound` → Extractive fallback |
+| **Service-Oriented Architecture** | Clean 6-service architecture (`backend/agents/`, `backend/services/`) |
+| **Orchestration Layer** | CrewAI orchestrator with deterministic & LLM planner options |
+| **IDE-like Interface** | Live Architecture visualizer page at `/architecture` |
+| **Research Novelty** | Delta-aware amendment summarization (`amendment_service.py` + `/amendments`) |
 
 ---
 
-**Built with ❤️ for Big Data Analytics**
+## 📝 License & Citation
+
+Licensed under the MIT License. Data sourced from **PRS Legislative Research** (https://prsindia.org).
