@@ -293,6 +293,17 @@ three non-frontend follow-ups discovered during verification.
    Tailwind utility classes; backend uses blueprint + db_service layering.
 5. When a task finishes, update THIS file (§5 defect list, §6 checkboxes) so the next
    session inherits truth, not archaeology.
+6. **Commit as we go** (user requirement — resume-grade granular history):
+   - Remote: `https://github.com/DEATHGATE01/VidhanAi` (branch `main`, HTTPS).
+   - After each completed task/subsystem, `git add <specific files>` and commit
+     with conventional format (`feat|fix|docs|chore|refactor(scope): summary` +
+     body bullets). NEVER one giant commit at session end.
+   - Push to origin after each commit (or small batch): `git push origin main`.
+   - Never `git add -A` blindly — stage by subsystem so commits stay logical.
+   - Watch .gitignore traps: patterns must match subdirectories (`**`) for
+     nested artifacts (a 102 MB results.zip once slipped past `notebooks/*.zip`).
+   - Never commit: `.env`, `instance/*.db`, `node_modules`, model weights,
+     files >50 MB (GitHub rejects >100 MB).
 
 ---
 
