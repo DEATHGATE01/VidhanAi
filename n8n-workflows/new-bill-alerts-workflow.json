@@ -1,0 +1,116 @@
+{
+  "name": "VidhanAI - New Bill & Status Alerts",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "wf-alerts-01",
+      "name": "Every hour",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -260,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5000/api/check-new-bills",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ lookback_hours: 25 }) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "wf-alerts-02",
+      "name": "Check backend for alerts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -40,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// n8n Code node: turn /api/check-new-bills alerts into email items.\nconst body = $json;\nif (!body.success || !body.alerts_count) return [];\n\nfunction esc(s) {\n  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');\n}\n\nconst items = [];\nfor (const a of (body.alerts || [])) {\n  const isStatus = a.alert_type === 'status_update';\n  const banner = isStatus\n    ? '<p style=\"display:inline-block;background:#fef3c7;border:1px solid #f59e0b;color:#92400e;font-size:13px;font-weight:700;padding:6px 12px;border-radius:999px;margin:0 0 14px;\">Status updated: ' + esc(a.previous_status) + ' &rarr; ' + esc(a.bill_status) + '</p>'\n    : '<p style=\"display:inline-block;background:#ecfdf5;border:1px solid #10b981;color:#065f46;font-size:13px;font-weight:700;padding:6px 12px;border-radius:999px;margin:0 0 14px;\">New bill matching: ' + esc((a.matched_keywords || []).join(', ')) + '</p>';\n  const summaryHtml = esc(a.summary).replace(/\\n/g, '<br>');\n  const html = '<div style=\"max-width:640px;margin:0 auto;font-family:Arial,sans-serif;\">'\n    + '<div style=\"text-align:center;margin-bottom:20px;\"><span style=\"display:inline-block;background:#7c3aed;color:#fff;border-radius:12px;padding:10px 16px;font-size:18px;font-weight:700;\">VidhanAI</span></div>'\n    + '<div style=\"background:#ffffff;border-radius:16px;padding:28px;border:1px solid #e2e8f0;\">'\n    + banner\n    + '<h1 style=\"margin:0 0 6px;color:#0f172a;font-size:20px;\">' + esc(a.bill_title) + '</h1>'\n    + '<p style=\"margin:0 0 14px;color:#64748b;font-size:13px;\">Ministry of ' + esc(a.bill_ministry) + ' &bull; Status: ' + esc(a.bill_status) + '</p>'\n    + '<div style=\"color:#334155;font-size:14px;line-height:1.65;\">' + summaryHtml + '</div>'\n    + (a.bill_url ? '<p style=\"margin:14px 0 0;\"><a href=\"' + a.bill_url + '\" style=\"color:#7c3aed;font-weight:600;\">Read the full bill on PRS India</a></p>' : '')\n    + '<hr style=\"border:none;border-top:1px solid #e2e8f0;margin:22px 0;\">'\n    + '<p style=\"margin:0;color:#94a3b8;font-size:12px;\">AI-generated summary - may contain errors. Unsubscribe by replying to this email.</p>'\n    + '</div></div>';\n  const subject = isStatus\n    ? 'Update on a bill you track: ' + a.bill_title\n    : 'New bill for you: ' + a.bill_title;\n  items.push({ json: { email: a.email, subject, html, notification_id: a.notification_id } });\n}\nreturn items;\n"
+      },
+      "id": "wf-alerts-03",
+      "name": "Build alert emails",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        180,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "vidhanai-alerts@example.com",
+        "toEmail": "={{ $json.email }}",
+        "subject": "=VidhanAI | {{ $json.subject }}",
+        "emailFormat": "html",
+        "html": "={{ $json.html }}",
+        "options": {}
+      },
+      "id": "wf-alerts-04",
+      "name": "Send email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        400,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Every hour": {
+      "main": [
+        [
+          {
+            "node": "Check backend for alerts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check backend for alerts": {
+      "main": [
+        [
+          {
+            "node": "Build alert emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build alert emails": {
+      "main": [
+        [
+          {
+            "node": "Send email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}
