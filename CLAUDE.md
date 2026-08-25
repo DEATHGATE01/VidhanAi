@@ -53,14 +53,12 @@ VidhanAi-main/
 │   │   ├── setup/             ← seed_bills_for_ft.py, fetch_all_bill_data.py, ...
 │   │   ├── ml_pipeline/       ← 1_generate_dataset.py, 2_vectorize_docs.py,
 │   │   │                        3_calculate_metrics.py
-│   │   └── maintenance/       ← seed_bill_versions.py, clear_* cache scripts
+│   │   └── maintenance/       ← seed_bill_versions.py, add_bill_status_column.py,
+│   │                            clear_* cache scripts
 │   ├── src/scraping/prs_billtrack_scraper.py
 │   └── requirements.txt
-├── frontend/                  ← ⚠️ ABANDONED — emptied to a stub package-lock.json.
-│                                 Do NOT build here. Kept only because vercel.json at
-│                                 root still points at it (see TODO B1).
-├── frontend_new/              ← ✅ THE ACTIVE FRONTEND (React 19 + Vite 8 + TW4).
-│                                 Currently BROKEN — see §5 for exact defects.
+├── frontend_new/              ← ✅ THE FRONTEND (React 19 + Vite 8 + Tailwind 4).
+│                                 Fully working — see §5.
 ├── notebooks/
 │   ├── qlora_finetuning.ipynb ← Kaggle T4×2 training notebook (paper's hyperparams)
 │   └── roundtrip_lora.py      ← bundle dataset zip / extract adapter (rejects stubs)
@@ -293,17 +291,19 @@ three non-frontend follow-ups discovered during verification.
    Tailwind utility classes; backend uses blueprint + db_service layering.
 5. When a task finishes, update THIS file (§5 defect list, §6 checkboxes) so the next
    session inherits truth, not archaeology.
-6. **Commit as we go** (user requirement — resume-grade granular history):
+6. **Commit at every phase boundary** (user requirement — resume-grade history):
    - Remote: `https://github.com/DEATHGATE01/VidhanAi` (branch `main`, HTTPS).
-   - After each completed task/subsystem, `git add <specific files>` and commit
-     with conventional format (`feat|fix|docs|chore|refactor(scope): summary` +
-     body bullets). NEVER one giant commit at session end.
-   - Push to origin after each commit (or small batch): `git push origin main`.
-   - Never `git add -A` blindly — stage by subsystem so commits stay logical.
-   - Watch .gitignore traps: patterns must match subdirectories (`**`) for
-     nested artifacts (a 102 MB results.zip once slipped past `notebooks/*.zip`).
-   - Never commit: `.env`, `instance/*.db`, `node_modules`, model weights,
-     files >50 MB (GitHub rejects >100 MB).
+   - One conventional commit per completed PHASE (not per task, not one blob):
+     `feat|fix|docs|chore|refactor(scope): summary` + body bullets describing
+     what changed and why. Push to origin immediately after.
+   - Stage by subsystem (`git add <paths>`), never blind `git add -A`.
+   - Commit messages must carry context: what happened, why, and anything the
+     next reader needs (e.g. "superseded by X", "regenerable via Y").
+   - Keep the repo clean & professional: delete dead code/empty dirs/stale
+     artifacts when encountered; never commit `.env`, `instance/*.db`,
+     `node_modules`, model weights, or files >50 MB (GitHub rejects >100 MB;
+     ignore patterns must use `**` to match subdirectories — a 102 MB zip
+     once slipped past `notebooks/*.zip`).
 
 ---
 
@@ -315,4 +315,4 @@ three non-frontend follow-ups discovered during verification.
 | `PHASE2_STATUS.md` | Exact Kaggle training + eval runbook |
 | `docs/ARCHITECTURE.md` | Mermaid diagrams, service inventory |
 | `README.md` | Public narrative (slightly stale re: frontend paths) |
-| `aidevops.txt` | Instructor's rubric emphasis (services, orchestration, ownership) |
+| `n8n-workflows/N8N_SUBSCRIPTION_GUIDE.md` | Alert-email setup (endpoints listed there are stale — see Phase D item 3) |
