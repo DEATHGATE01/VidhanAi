@@ -159,6 +159,26 @@ export const getBillVersions = async (billId, limit = 20) => {
   return response.data
 }
 
+// ============================================================================
+// ALERTS (subscription + n8n email pipeline)
+// ============================================================================
+
+export const subscribeToAlerts = async ({ email, specificBills = [], keywords = [], ministries = [], frequency = 'instant' }) => {
+  const response = await api.post('/subscribe', {
+    email,
+    specific_bills: specificBills,
+    keywords,
+    ministries,
+    email_frequency: frequency,
+  })
+  return response.data
+}
+
+export const unsubscribeFromAlerts = async (email) => {
+  const response = await api.post('/unsubscribe', { email })
+  return response.data
+}
+
 export const getBillNews = async (billId, limit = 5) => {
   const response = await api.get(`/bills/${billId}/news`, { params: { limit } })
   return response.data

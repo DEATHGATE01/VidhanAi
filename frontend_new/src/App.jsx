@@ -5,6 +5,7 @@ import LandingPage from './pages/LandingPage'
 import ExplorePage from './pages/ExplorePage'
 import ResearchPage from './pages/ResearchPage'
 import AmendmentsPage from './pages/AmendmentsPage'
+import AlertsPage from './pages/AlertsPage'
 import ArchitecturePage from './pages/ArchitecturePage'
 import PlaygroundPage from './pages/PlaygroundPage'
 import SearchPage from './pages/SearchPage'
@@ -29,6 +30,7 @@ export default function App() {
           <Route path="/explore" element={<ExplorePage />} />
           <Route path="/research" element={<ResearchPage />} />
           <Route path="/amendments" element={<AmendmentsPage />} />
+          <Route path="/alerts" element={<AlertsPage />} />
           <Route path="/architecture" element={<ArchitecturePage />} />
           <Route path="/playground" element={<PlaygroundPage />} />
           <Route path="/search" element={<SearchPage />} />
