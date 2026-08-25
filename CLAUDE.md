@@ -224,15 +224,11 @@ three non-frontend follow-ups discovered during verification.
   Import into n8n, attach SMTP credential, set fromEmail, activate.
 
 **Remaining (fresh session should do):**
-1. `n8n-workflows/new-bill-alerts-workflow.json` — hourly scheduleTrigger →
-   HTTP POST `http://127.0.0.1:5000/api/check-new-bills` body
-   `{"lookback_hours":25}` → Code node (one item per alert: `{email, subject,
-   html, notification_id}`; green "New bill matching: <keywords>" banner for
-   new bills, amber "Status updated: <old> → <new>" banner for
-   `alert_type==='status_update'`) → emailSend → then POST
-   `/api/notifications/<id>/sent` per alert. TIP: write the Code-node JS as a
-   separate .js file first, then assemble the JSON with a small Python
-   `json.dump` script (hand-writing long JSON+JS inline corrupted repeatedly).
+0. Workflows are IMPORTED into the local n8n (v2.8.4, CLI `n8n import:workflow`).
+   User must still: attach an SMTP credential to both "Send email" nodes, set a
+   real fromEmail (placeholder `vidhanai-alerts@example.com`), and ACTIVATE both
+   workflows in the UI (activation needs the UI or an API key — CLI can't).
+   Webhook only registers once the welcome workflow is Active.
 2. Frontend AlertsPage: `AlertsPage.jsx` (tabs: Specific Bill / Category;
    email input; bill picker via `getAllBills`; keyword chips; ministry select;
    frequency instant/daily/weekly) → `POST /api/subscribe` → then POST the
