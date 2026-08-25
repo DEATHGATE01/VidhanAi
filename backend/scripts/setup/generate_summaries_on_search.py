@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from app import create_app
 from models import db, Bill, BillSummary, SearchHistory
-from ai_service_api import generate_bill_summary_api
+from ai_service import generate_bill_summary
 
 def generate_summary_for_bill(bill_id, force_regenerate=False):
     """
@@ -53,12 +53,24 @@ def generate_summary_for_bill(bill_id, force_regenerate=False):
         print(f"🤖 Generating AI summary for: {bill.title[:60]}...")
         
         try:
-            # Generate summary using AI service
-            summary_text = generate_bill_summary_api(bill.content, bill.title)
-            
+            # Generate summary using the AI service.
+            # generate_bill_summary(bill_data, content_data) expects dicts and
+            # returns a dict (summary, summary_type, confidence, ...). This
+            # mirrors db_service.get_or_generate_bill_summary().
+            bill_data = bill.to_dict()
+            content_data = {
+                'full_text': bill.content.full_text,
+                'sections': bill.content.sections,
+                'paragraphs': bill.content.paragraphs,
+            }
+            summary_result = generate_bill_summary(bill_data, content_data)
+            summary_text = summary_result['summary']
+
             if existing_summary:
                 # Update existing
                 existing_summary.summary = summary_text
+                existing_summary.summary_type = summary_result.get('summary_type')
+                existing_summary.confidence = summary_result.get('confidence', 0.5)
                 existing_summary.generated_at = datetime.utcnow()
                 summary_obj = existing_summary
                 print(f"   ✅ Summary updated")
@@ -67,6 +79,8 @@ def generate_summary_for_bill(bill_id, force_regenerate=False):
                 summary_obj = BillSummary(
                     bill_id=bill_id,
                     summary=summary_text,
+                    summary_type=summary_result.get('summary_type'),
+                    confidence=summary_result.get('confidence', 0.5),
                     generated_at=datetime.utcnow()
                 )
                 db.session.add(summary_obj)
@@ -98,7 +112,7 @@ def generate_summaries_for_popular_bills(days=7, top_n=50):
             SearchHistory.keyword,
             db.func.count(SearchHistory.id).label('search_count')
         ).filter(
-            SearchHistory.searched_at >= cutoff_date
+            SearchHistory.timestamp >= cutoff_date
         ).group_by(
             SearchHistory.keyword
         ).order_by(
