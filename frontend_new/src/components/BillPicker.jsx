@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
-import { Search, ChevronDown } from 'lucide-react'
+import { Search, ChevronDown, X } from 'lucide-react'
+import { smartFilterBills } from '../utils/billSearch'
 
 // Searchable bill combobox — type to filter, click to select.
 // Replaces the 100-option <select> in AlertsPage.
@@ -18,13 +19,8 @@ export default function BillPicker({ bills, value, onChange, loading, idPrefix =
     return () => document.removeEventListener('mousedown', onDocClick)
   }, [])
 
-  const kw = query.trim().toLowerCase()
-  const filtered = kw
-    ? bills.filter((b) =>
-        b.title?.toLowerCase().includes(kw) ||
-        b.ministry?.toLowerCase().includes(kw) ||
-        b.status?.toLowerCase().includes(kw))
-    : bills
+  const kw = query.trim()
+  const filtered = smartFilterBills(bills, kw)
 
   return (
     <div ref={boxRef} style={{ position: 'relative' }}>
@@ -62,11 +58,21 @@ export default function BillPicker({ bills, value, onChange, loading, idPrefix =
                 autoFocus
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Type to filter…"
+                placeholder="Type to filter… (try 'gst', 'bns', 'income tax')"
                 className="input"
-                style={{ padding: '0.5rem 0.75rem 0.5rem 2.1rem', fontSize: '0.85rem' }}
+                style={{ padding: '0.5rem 2rem 0.5rem 2.1rem', fontSize: '0.85rem' }}
                 aria-label="Filter bills"
               />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery('')}
+                  aria-label="Clear filter"
+                  style={{ position: 'absolute', right: '0.55rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', padding: 2 }}
+                >
+                  <X size={13} />
+                </button>
+              )}
             </div>
           </div>
 
