@@ -40,7 +40,7 @@ export default function ArchitecturePage() {
         <h1 style={{ fontSize: '1.6rem', fontWeight: 800, letterSpacing: '-0.5px', margin: 0 }}>
           🏗️ Live Architecture
         </h1>
-        <p style={{ color: '#64748b', fontSize: '0.85rem', margin: 0 }}>
+        <p style={{ color: 'var(--text-2)', fontSize: '0.85rem', margin: 0 }}>
           {arch.service} v{arch.version} · live inventory from GET /api/architecture
         </p>
       </header>
@@ -64,7 +64,7 @@ export default function ArchitecturePage() {
                 {d.url}
               </a>
             )}
-            {d.path && <code style={{ fontSize: '0.72rem', color: '#64748b', display: 'block' }}>{d.path}</code>}
+            {d.path && <code style={{ fontSize: '0.72rem', color: 'var(--text-2)', display: 'block' }}>{d.path}</code>}
             {d.bills_indexed != null && <Meta>{Number(d.bills_indexed).toLocaleString('en-IN')} bills indexed</Meta>}
           </InfoCard>
         ))}
@@ -105,7 +105,7 @@ export default function ArchitecturePage() {
 function CardGrid({ heading, children }) {
   return (
     <section style={{ marginBottom: '1.75rem' }} aria-label={heading}>
-      <h2 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#c4b5fd', margin: '0 0 0.75rem' }}>{heading}</h2>
+      <h2 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#a5b4fc', margin: '0 0 0.75rem' }}>{heading}</h2>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))', gap: '0.85rem' }}>
         {children}
       </div>
@@ -118,7 +118,7 @@ function InfoCard({ icon, title, badge, children }) {
     <article className="glass-panel rounded-xl" style={{ padding: '1rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.45rem' }}>
         <span aria-hidden="true">{icon}</span>
-        <strong style={{ fontSize: '0.88rem', color: '#e2e8f0' }}>{title}</strong>
+        <strong style={{ fontSize: '0.88rem', color: 'var(--text-1)' }}>{title}</strong>
         {badge && <span className="badge badge-emerald" style={{ marginLeft: 'auto', fontSize: '0.65rem' }}>{badge}</span>}
       </div>
       {children}
@@ -127,5 +127,5 @@ function InfoCard({ icon, title, badge, children }) {
 }
 
 function Meta({ children }) {
-  return <p style={{ margin: '0 0 0.3rem', color: '#94a3b8', fontSize: '0.8rem', lineHeight: 1.55 }}>{children}</p>
+  return <p style={{ margin: '0 0 0.3rem', color: 'var(--text-2)', fontSize: '0.8rem', lineHeight: 1.55 }}>{children}</p>
 }

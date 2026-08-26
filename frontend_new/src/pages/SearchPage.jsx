@@ -42,7 +42,7 @@ export default function SearchPage() {
         <h1 style={{ fontSize: '1.6rem', fontWeight: 800, letterSpacing: '-0.5px', margin: 0 }}>
           🔍 Semantic Search
         </h1>
-        <p style={{ color: '#64748b', fontSize: '0.85rem', margin: 0 }}>
+        <p style={{ color: 'var(--text-2)', fontSize: '0.85rem', margin: 0 }}>
           Meaning-based retrieval over ChromaDB embeddings (all-MiniLM-L6-v2) · protected by input guardrails
         </p>
       </header>
@@ -77,7 +77,7 @@ export default function SearchPage() {
 
       {results.length > 0 && (
         <>
-          <p style={{ color: '#64748b', fontSize: '0.82rem', margin: '0 0 0.85rem' }}>
+          <p style={{ color: 'var(--text-2)', fontSize: '0.82rem', margin: '0 0 0.85rem' }}>
             {results.length} result{results.length === 1 ? '' : 's'} · ranked by semantic similarity
           </p>
           <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>

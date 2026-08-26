@@ -39,7 +39,7 @@ export default function AmendmentsPage() {
         <h1 style={{ fontSize: '1.6rem', fontWeight: 800, letterSpacing: '-0.5px', margin: 0 }}>
           ⚖️ Amendment Diff
         </h1>
-        <p style={{ color: '#64748b', fontSize: '0.85rem', margin: 0 }}>
+        <p style={{ color: 'var(--text-2)', fontSize: '0.85rem', margin: 0 }}>
           Delta-aware structural + factual diff between two bills · pure-Python engine, LLM narrative layer
         </p>
       </header>
@@ -55,7 +55,7 @@ export default function AmendmentsPage() {
             style={{ width: '100%', padding: '0.7rem 1rem', fontSize: '0.85rem', fontFamily: 'JetBrains Mono, monospace' }}
             aria-label="Older bill id"
           />
-          <span style={{ color: '#8b5cf6', fontWeight: 800, fontSize: '1.2rem' }}>→</span>
+          <span style={{ color: 'var(--accent)', fontWeight: 800, fontSize: '1.2rem' }}>→</span>
           <input
             value={v2}
             onChange={(e) => setV2(e.target.value)}
@@ -83,9 +83,9 @@ export default function AmendmentsPage() {
         <div className="animate-fade-in">
           {/* Titles */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'baseline', marginBottom: '1rem' }}>
-            <strong style={{ color: '#cbd5e1' }}>{result.title_v1}</strong>
-            <span style={{ color: '#8b5cf6' }}>→</span>
-            <strong style={{ color: '#cbd5e1' }}>{result.title_v2}</strong>
+            <strong style={{ color: 'var(--text-1)' }}>{result.title_v1}</strong>
+            <span style={{ color: 'var(--accent)' }}>→</span>
+            <strong style={{ color: 'var(--text-1)' }}>{result.title_v2}</strong>
             <span className="badge badge-vidhan" style={{ marginLeft: 'auto' }}>model: {result.model_version}</span>
           </div>
 
@@ -93,16 +93,16 @@ export default function AmendmentsPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.75rem', marginBottom: '1.25rem' }}>
             {Object.entries(result.stats || {}).map(([k, val]) => (
               <div key={k} className="glass-panel rounded-xl text-center" style={{ padding: '0.85rem 0.5rem' }}>
-                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#a78bfa' }}>{String(val)}</div>
-                <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>{STATS_LABELS[k] || k.replace(/_/g, ' ')}</div>
+                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#a5b4fc' }}>{String(val)}</div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-2)', fontWeight: 600, textTransform: 'uppercase' }}>{STATS_LABELS[k] || k.replace(/_/g, ' ')}</div>
               </div>
             ))}
           </div>
 
           {/* Narrative */}
           <section className="glass-panel rounded-2xl" style={{ padding: '1.25rem', marginBottom: '1.25rem' }} aria-label="Change narrative">
-            <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#c4b5fd', margin: '0 0 0.5rem' }}>🧠 Change Narrative</h2>
-            <p style={{ margin: 0, color: '#e2e8f0', fontSize: '0.92rem', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
+            <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#a5b4fc', margin: '0 0 0.5rem' }}>🧠 Change Narrative</h2>
+            <p style={{ margin: 0, color: 'var(--text-1)', fontSize: '0.92rem', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
               {result.narrative || result.diff_summary_text}
             </p>
           </section>
@@ -117,7 +117,7 @@ export default function AmendmentsPage() {
           {/* Facts */}
           {(result.facts_added?.length > 0 || result.facts_removed?.length > 0) && (
             <section className="glass-panel rounded-2xl" style={{ padding: '1.25rem', marginTop: '1.25rem' }} aria-label="Factual changes">
-              <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#c4b5fd', margin: '0 0 0.65rem' }}>🔢 Factual Figure Changes</h2>
+              <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#a5b4fc', margin: '0 0 0.65rem' }}>🔢 Factual Figure Changes</h2>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.45rem' }}>
                 {(result.facts_added || []).map((f, i) => (
                   <span key={`a${i}`} className="badge badge-emerald">+ {String(f)}</span>
@@ -142,14 +142,14 @@ function SectionList({ tone, icon, heading, sections }) {
         {icon} {heading}
       </h3>
       {!sections || sections.length === 0 ? (
-        <p style={{ margin: 0, color: '#334155', fontSize: '0.8rem' }}>None</p>
+        <p style={{ margin: 0, color: 'var(--text-3)', fontSize: '0.8rem' }}>None</p>
       ) : (
         <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '0.55rem', maxHeight: 320, overflowY: 'auto' }}>
           {sections.map((s, i) => (
-            <li key={i} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '0.6rem 0.75rem' }}>
-              <strong style={{ fontSize: '0.8rem', color: '#cbd5e1', display: 'block', marginBottom: '0.25rem' }}>{s.title}</strong>
+            <li key={i} style={{ background: 'var(--surface-2)', borderRadius: 8, padding: '0.6rem 0.75rem' }}>
+              <strong style={{ fontSize: '0.8rem', color: 'var(--text-1)', display: 'block', marginBottom: '0.25rem' }}>{s.title}</strong>
               {s.content_preview && (
-                <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.76rem', lineHeight: 1.55 }}>{s.content_preview}</p>
+                <p style={{ margin: 0, color: 'var(--text-2)', fontSize: '0.76rem', lineHeight: 1.55 }}>{s.content_preview}</p>
               )}
               {s.changed_facts?.length > 0 && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginTop: '0.35rem' }}>

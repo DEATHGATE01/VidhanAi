@@ -43,13 +43,13 @@ export default function PlaygroundPage() {
         <h1 style={{ fontSize: '1.6rem', fontWeight: 800, letterSpacing: '-0.5px', margin: 0 }}>
           🔬 Model Playground
         </h1>
-        <p style={{ color: '#64748b', fontSize: '0.85rem', margin: 0 }}>
+        <p style={{ color: 'var(--text-2)', fontSize: '0.85rem', margin: 0 }}>
           Generate bill summaries and audit which model produced them · every result carries its model_version
         </p>
       </header>
 
       <form onSubmit={handleGenerate} className="glass-panel rounded-2xl" style={{ padding: '1.25rem', marginBottom: '1.5rem' }}>
-        <label htmlFor="pg-bill" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.4rem' }}>
+        <label htmlFor="pg-bill" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.4rem' }}>
           Select a bill
         </label>
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
@@ -100,8 +100,8 @@ export default function PlaygroundPage() {
             )}
           </div>
 
-          <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#c4b5fd', margin: '0 0 0.5rem' }}>📝 Plain-English Summary</h2>
-          <p style={{ margin: 0, color: '#e2e8f0', fontSize: '0.95rem', lineHeight: 1.75, whiteSpace: 'pre-wrap' }}>
+          <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#a5b4fc', margin: '0 0 0.5rem' }}>📝 Plain-English Summary</h2>
+          <p style={{ margin: 0, color: 'var(--text-1)', fontSize: '0.95rem', lineHeight: 1.75, whiteSpace: 'pre-wrap' }}>
             {summary.summary}
           </p>
         </section>

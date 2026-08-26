@@ -111,7 +111,7 @@ export default function ExplorePage() {
         <h1 style={{ fontSize: '1.6rem', fontWeight: 800, letterSpacing: '-0.5px', margin: 0 }}>
           📂 Explore Legislation
         </h1>
-        <p style={{ color: '#64748b', fontSize: '0.85rem', margin: 0 }}>
+        <p style={{ color: 'var(--text-2)', fontSize: '0.85rem', margin: 0 }}>
           Browse, search, and analyze Indian parliamentary bills from PRS Legislative Research
         </p>
       </header>
@@ -152,7 +152,7 @@ export default function ExplorePage() {
 
       {/* Toolbar */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center', marginBottom: '1.25rem' }}>
-        <span style={{ color: '#cbd5e1', fontSize: '0.85rem' }}>
+        <span style={{ color: 'var(--text-1)', fontSize: '0.85rem' }}>
           <strong>{sorted.length}</strong> bill{sorted.length === 1 ? '' : 's'}
           {selectedBills.size > 0 && <span style={{ color: '#34d399' }}> · {selectedBills.size} selected</span>}
         </span>
@@ -241,7 +241,7 @@ export default function ExplorePage() {
               <button type="button" onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="btn btn-secondary" aria-label="Previous page" style={{ padding: '0.4rem 0.7rem' }}>
                 <ChevronLeft size={16} />
               </button>
-              <span style={{ color: '#94a3b8', fontSize: '0.85rem', padding: '0 0.5rem' }}>Page {page} of {totalPages}</span>
+              <span style={{ color: 'var(--text-2)', fontSize: '0.85rem', padding: '0 0.5rem' }}>Page {page} of {totalPages}</span>
               <button type="button" onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="btn btn-secondary" aria-label="Next page" style={{ padding: '0.4rem 0.7rem' }}>
                 <ChevronRight size={16} />
               </button>

@@ -20,8 +20,8 @@ export default function BillCard({ bill, onViewDetails, onAddFavorite, isSelecte
       className="card card-hover rounded-2xl"
       style={{
         padding: '1.25rem',
-        background: 'rgba(30,41,59,0.45)',
-        borderColor: isSelected ? 'rgba(139,92,246,0.5)' : 'rgba(255,255,255,0.07)',
+        background: 'var(--surface)',
+        borderColor: isSelected ? 'rgba(99,102,241,0.5)' : 'var(--border)',
         display: 'flex',
         flexDirection: 'column',
         gap: '0.6rem',
@@ -41,8 +41,8 @@ export default function BillCard({ bill, onViewDetails, onAddFavorite, isSelecte
             width: 20,
             height: 20,
             borderRadius: 6,
-            border: '1px solid rgba(255,255,255,0.2)',
-            background: isSelected ? '#8b5cf6' : 'transparent',
+            border: '1px solid var(--border-strong)',
+            background: isSelected ? 'var(--accent)' : 'transparent',
             color: '#fff',
             fontSize: '0.7rem',
             lineHeight: 1,
@@ -74,7 +74,7 @@ export default function BillCard({ bill, onViewDetails, onAddFavorite, isSelecte
 
       {/* Ministry */}
       {bill.ministry && (
-        <p style={{ margin: 0, color: '#64748b', fontSize: '0.8rem' }}>🏛️ {bill.ministry}</p>
+        <p style={{ margin: 0, color: 'var(--text-2)', fontSize: '0.8rem' }}>🏛️ {bill.ministry}</p>
       )}
 
       {/* Actions */}
