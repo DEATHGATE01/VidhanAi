@@ -129,6 +129,30 @@ MIN_REAL_SAFETENSORS_BYTES = 1_000_000
 # is on disk. Set VIDHANAI_USE_LORA=1 to enable it after Phase 2 training.
 USE_LOCAL_LORA = os.environ.get("VIDHANAI_USE_LORA", "0") == "1"
 
+# ---------------------------------------------------------------------------
+# Ollama backend (fine-tuned model on the demo box, served locally on CPU).
+#
+# The QLoRA adapter from notebooks/lora_model is merged + quantized to a Q4 GGUF
+# (see notebooks/export_lora_to_gguf.ipynb) and served by Ollama at
+# VIDHANAI_OLLAMA_URL. When VIDHANAI_USE_OLLAMA=1 this backend runs FIRST in the
+# generation chain, so the app's summaries come from the locally fine-tuned
+# model instead of Groq. Leave it unset on cloud deploys (Render/HF) where the
+# model cannot run and groq/compound remains the public-facing backend.
+# ---------------------------------------------------------------------------
+USE_OLLAMA = os.environ.get("VIDHANAI_USE_OLLAMA", "0") == "1"
+OLLAMA_URL = os.environ.get("VIDHANAI_OLLAMA_URL", "http://127.0.0.1:11434/v1")
+OLLAMA_MODEL = os.environ.get("VIDHANAI_OLLAMA_MODEL", "vidhanai")
+# Cap output length: a 3B model on CPU generates ~15-40 s per 384 tokens, so
+# keep the demo responsive. Raise only if summaries feel truncated.
+def _ollama_max_tokens() -> int:
+    try:
+        return max(64, int(os.environ.get("VIDHANAI_OLLAMA_MAX_TOKENS", "384")))
+    except (TypeError, ValueError):  # pragma: no cover - bad env value
+        return 384
+
+
+OLLAMA_MAX_TOKENS = _ollama_max_tokens()
+
 
 # ---------------------------------------------------------------------------
 # Local LoRA backend (Phase 2)
@@ -238,6 +262,71 @@ def generate_lora_summary(text: str) -> Optional[str]:
     except Exception as exc:  # pragma: no cover - defensive
         logger.exception("Local LoRA generation failed: %s", exc)
         return None
+
+
+# ---------------------------------------------------------------------------
+# Ollama backend (fine-tuned model, local CPU demo)
+# ---------------------------------------------------------------------------
+
+def generate_ollama_summary(text: str) -> Optional[str]:
+    """Run the locally-served fine-tuned model through Ollama.
+
+    Talks to Ollama's OpenAI-compatible endpoint (default
+    ``http://127.0.0.1:11434/v1``) using the same expert prompt as the Groq and
+    LoRA backends, so the model_version stamp tells you honestly which backend
+    produced the text. Returns ``None`` on any failure (model not loaded,
+    Ollama not running, timeout) so the caller degrades gracefully instead of
+    erroring - never fabricates output.
+    """
+    if not USE_OLLAMA:
+        return None
+    try:
+        import requests as _requests
+    except ImportError:  # pragma: no cover - requests is in requirements
+        logger.warning("requests not installed; Ollama backend unavailable.")
+        return None
+
+    try:
+        resp = _requests.post(
+            f"{OLLAMA_URL}/chat/completions",
+            json={
+                "model": OLLAMA_MODEL,
+                "messages": [
+                    {"role": "system", "content": EXPERT_SYSTEM_PROMPT},
+                    {"role": "user", "content": f"Simplify this legal text:\n\n{text[:6000]}"},
+                ],
+                "temperature": 0.3,
+                "top_p": 0.9,
+                "max_tokens": OLLAMA_MAX_TOKENS,
+            },
+            timeout=240,  # CPU 3B can take ~40 s for a full summary; stay generous
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        content = (data.get("choices") or [{}])[0].get("message", {}).get("content")
+        return (content or "").strip() or None
+    except Exception as exc:  # pragma: no cover - network/local server
+        logger.warning("Ollama call failed (%s): %s", OLLAMA_URL, exc)
+        return None
+
+
+def _generate_text_with_backends(text: str) -> Optional[str]:
+    """Run ``text`` through the enabled generative backends in priority order.
+
+    Order: Ollama fine-tuned model (local demo) → local LoRA → Groq. Each
+    backend is only consulted when configured/enabled, so a fine-tuned summary
+    never silently triggers a Groq call (e.g. for TL;DR extraction). Returns the
+    first non-empty generation or ``None``.
+    """
+    if USE_OLLAMA:
+        out = generate_ollama_summary(text)
+        if out:
+            return out
+    if USE_LOCAL_LORA:
+        out = generate_lora_summary(text)
+        if out:
+            return out
+    return generate_groq_summary(text)
 
 
 # ---------------------------------------------------------------------------
@@ -433,8 +522,13 @@ def generate_bill_summary(bill_data: dict, content_data: dict) -> dict:
     confidence = 0.5
 
     if full_text:
-        # Try the configured backends in priority order.
+        # Try the configured backends in priority order: locally fine-tuned
+        # model (Ollama) → local LoRA → Groq. Enabling the Ollama backend makes
+        # the fine-tuned model the generative engine for the running app; when
+        # it is unset (cloud deploys) behavior is unchanged and Groq serves.
         backend_chain = []
+        if USE_OLLAMA:
+            backend_chain.append(("ollama", generate_ollama_summary))
         if USE_LOCAL_LORA:
             backend_chain.append(("local_lora", generate_lora_summary))
         backend_chain.append(("groq_expert", generate_groq_summary))
@@ -445,7 +539,10 @@ def generate_bill_summary(bill_data: dict, content_data: dict) -> dict:
                 header = _format_header(title, ministry, status, introduction_date, date_scraped)
                 summary_text = f"{header}\n\n### AI Generative Summary\n{result}"
                 summary_type = "generative"
-                if backend_name == "local_lora":
+                if backend_name == "ollama":
+                    model_version = f"local_ollama_{OLLAMA_MODEL}"
+                    confidence = 0.9
+                elif backend_name == "local_lora":
                     model_version = f"local_lora_{LORA_BASE_MODEL.split('/')[-1]}"
                     confidence = 0.92
                 elif backend_name == "groq_expert":
@@ -463,12 +560,12 @@ def generate_bill_summary(bill_data: dict, content_data: dict) -> dict:
             tldr_end = len(summary_text)
         tldr = summary_text[tldr_start:tldr_end].strip()
     elif summary_text and summary_type == "generative":
-        # Generate TL;DR using LLM
-        tldr_result = generate_groq_summary(
+        # Generate TL;DR using the same enabled generative backends that made
+        # the summary (Ollama → local LoRA → Groq), so a fine-tuned summary
+        # never silently triggers a Groq call here.
+        tldr_result = _generate_text_with_backends(
             f"{TLDR_EXTRACT_PROMPT}\n\n{summary_text[:8000]}"
-        ) or generate_lora_summary(
-            f"{TLDR_EXTRACT_PROMPT}\n\n{summary_text[:8000]}"
-        ) if USE_LOCAL_LORA else None
+        )
         if tldr_result:
             tldr = "## TL;DR\n" + "\n".join(f"• {line.strip()}" for line in tldr_result.strip().split("\n") if line.strip())
 
@@ -577,7 +674,13 @@ def generate_change_narrative(diff: dict) -> dict:
     narrative = ""
     model_version = "rule_based_diff_narrative_v1"
     confidence = 0.55
-    if USE_LOCAL_LORA:
+    if USE_OLLAMA:
+        ollama_out = generate_ollama_summary(user_payload)
+        if ollama_out:
+            narrative = ollama_out
+            model_version = f"local_ollama_{OLLAMA_MODEL}"
+            confidence = 0.9
+    if not narrative and USE_LOCAL_LORA:
         lora_out = generate_lora_summary(user_payload)
         if lora_out:
             narrative = lora_out

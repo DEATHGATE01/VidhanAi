@@ -1,7 +1,7 @@
 """
 VidhanAI LoRA round-trip helper (Kaggle <-> local).
 
-Two directions:
+Modes:
 
 1. DATASET OUT (local -> Kaggle): package the train/val/test JSONL so it can be
    dragged into a new Kaggle Dataset (Data tab -> "New Dataset" -> upload this zip).
@@ -10,7 +10,15 @@ Two directions:
 
    Produces:  datasets/vidhanai_ft_dataset.zip
 
-2. ADAPTER IN (Kaggle -> local): unzip the lora_model/ folder you downloaded
+2. ADAPTER OUT (local -> Kaggle): zip the trained adapter (notebooks/lora_model/)
+   so it can be uploaded to a Kaggle Dataset and merged/quantized there by
+   export_lora_to_gguf.ipynb (no GPU needed locally for the conversion).
+
+       python roundtrip_lora.py --bundle-adapter
+
+   Produces:  vidhanai_lora_adapter.zip   (wraps a lora_model/ folder)
+
+3. ADAPTER IN (Kaggle -> local): unzip the lora_model/ folder you downloaded
    from the Kaggle notebook session into notebooks/lora_model/ with sanity
    checks (must contain adapter_config.json and a real safetensors file).
 
@@ -40,6 +48,7 @@ REPO_ROOT = SCRIPT_DIR.parent
 DATASET_DIR = REPO_ROOT / "backend" / "scripts" / "ml_pipeline" / "datasets"
 LORA_MODEL_DIR = SCRIPT_DIR / "lora_model"
 BUNDLE_OUT = SCRIPT_DIR / "vidhanai_ft_dataset.zip"
+ADAPTER_BUNDLE_OUT = SCRIPT_DIR / "vidhanai_lora_adapter.zip"
 
 EXPECTED_DATASET_FILES = ("train.jsonl", "val.jsonl", "test.jsonl")
 MIN_REAL_SAFETENSORS_BYTES = 1_000_000  # a stub placeholder is ~133 bytes
@@ -80,6 +89,38 @@ def bundle_dataset() -> Path:
     print("Next: kaggle.com -> Datasets -> New Dataset -> upload this zip, or use:")
     print("  kaggle datasets create -p " + str(REPO_ROOT / "notebooks"))
     return BUNDLE_OUT
+
+
+def bundle_adapter() -> Path | None:
+    """Zip notebooks/lora_model/ for upload to a Kaggle Dataset.
+
+    The archive wraps the adapter in a ``lora_model/`` folder so
+    export_lora_to_gguf.ipynb can load it via ``load_adapter`` with a stable
+    path (``/kaggle/input/<dataset>/lora_model``).
+    """
+    if not (LORA_MODEL_DIR / "adapter_config.json").exists():
+        print(f"ERROR: no adapter_config.json in {LORA_MODEL_DIR}")
+        return None
+
+    ok, msg = _safetensors_are_real(LORA_MODEL_DIR)
+    if not ok:
+        print(f"ERROR: {msg}")
+        print("This looks like the 133-byte stub, not a trained adapter. Aborting.")
+        return None
+
+    if ADAPTER_BUNDLE_OUT.exists():
+        ADAPTER_BUNDLE_OUT.unlink()
+
+    with zipfile.ZipFile(ADAPTER_BUNDLE_OUT, "w", zipfile.ZIP_DEFLATED) as zf:
+        for p in sorted(LORA_MODEL_DIR.iterdir()):
+            if p.is_file():
+                zf.write(p, arcname=f"lora_model/{p.name}")
+
+    size_mb = ADAPTER_BUNDLE_OUT.stat().st_size / (1024 * 1024)
+    print(f"Wrote {ADAPTER_BUNDLE_OUT.name} ({size_mb:.1f} MB) — {msg}")
+    print("Next: kaggle.com -> Datasets -> New Dataset -> upload this zip, then run")
+    print("      export_lora_to_gguf.ipynb with it attached as input.")
+    return ADAPTER_BUNDLE_OUT
 
 
 def _safetensors_are_real(adapter_dir: Path) -> tuple[bool, str]:
@@ -148,6 +189,9 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bundle-dataset", action="store_true",
                         help="Zip datasets/*.jsonl for Kaggle Dataset upload.")
+    parser.add_argument("--bundle-adapter", action="store_true",
+                        help="Zip notebooks/lora_model/ for a Kaggle Dataset upload "
+                             "(prep for GGUF export).")
     parser.add_argument("--extract-adapter", metavar="ZIP",
                         help="Path to the lora_model.zip downloaded from Kaggle.")
     return parser.parse_args()
@@ -155,11 +199,13 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    if not args.bundle_dataset and not args.extract_adapter:
+    if not (args.bundle_dataset or args.bundle_adapter or args.extract_adapter):
         print(__doc__)
         return 1
     if args.bundle_dataset:
         bundle_dataset()
+    if args.bundle_adapter:
+        bundle_adapter()
     if args.extract_adapter:
         extract_adapter(args.extract_adapter)
     return 0

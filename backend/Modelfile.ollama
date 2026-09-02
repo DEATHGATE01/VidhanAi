@@ -1,0 +1,30 @@
+# Ollama Modelfile — locally fine-tuned VidhanAI Llama-3.2-3B (Q4_K_M)
+#
+# This registers the merged + quantized fine-tuned model (from
+# notebooks/export_lora_to_gguf.ipynb) under the Ollama model id `vidhanai`.
+#
+# Setup:
+#   1. Download the Q4_K_M GGUF (~2 GB) from the Kaggle export notebook and
+#      rename it to:  vidhanai-lora-q4_k_m.gguf
+#   2. Put it somewhere stable, e.g.  D:\models\vidhanai\vidhanai-lora-q4_k_m.gguf
+#   3. Edit the FROM line below to that absolute path (forward slashes work
+#      on Windows too).
+#   4. Register it:
+#        ollama create vidhanai -f backend/Modelfile.ollama
+#        ollama list          # confirm vidhanai is present
+#   5. Run the app with the local fine-tuned model:
+#        cd backend
+#        set VIDHANAI_USE_OLLAMA=1        (PowerShell: $env:VIDHANAI_USE_OLLAMA="1")
+#        python app.py
+#      and check bill summaries are stamped  model_version = local_ollama_vidhanai
+#
+# NOTE: the app sends EXPERT_SYSTEM_PROMPT as the system message per request
+# (backend/ai_service.py), so this Modelfile deliberately sets no SYSTEM line —
+# the model stays a plain instruct model and the app owns the prompt.
+FROM D:/models/vidhanai/vidhanai-lora-q4_k_m.gguf
+
+# Context big enough for a ~6000-char bill excerpt prompt plus a 384-token
+# generation. Raise if summaries get cut short.
+PARAMETER num_ctx 4096
+PARAMETER temperature 0.3
+PARAMETER top_p 0.9
