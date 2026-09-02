@@ -6,7 +6,7 @@
 ::        start.bat
 ::
 :: Backend  → http://localhost:5000  (Flask)
-:: Frontend → http://localhost:3000  (Vite proxies /api to :5000)
+:: Frontend → http://localhost:5173  (Vite proxies /api to :5000)
 :: ═══════════════════════════════════════════════════════════════
 
 title VidhanAI Dev Launcher
@@ -20,7 +20,7 @@ echo.
 :: ── Resolve paths ──────────────────────────────────────────────
 set ROOT=%~dp0
 set BACKEND=%ROOT%backend
-set FRONTEND=%ROOT%frontend
+set FRONTEND=%ROOT%frontend_new
 
 :: ── Check python ───────────────────────────────────────────────
 where python >nul 2>&1
@@ -56,14 +56,14 @@ start "VidhanAI Backend :5000" cmd /k "cd /d "%BACKEND%" && python app.py"
 timeout /t 3 /nobreak >nul
 
 :: ── Launch frontend in a new window ────────────────────────────
-echo  [2/2] Starting Vite frontend on http://localhost:3000
-start "VidhanAI Frontend :3000" cmd /k "cd /d "%FRONTEND%" && npm run dev"
+echo  [2/2] Starting Vite frontend on http://localhost:5173
+start "VidhanAI Frontend :5173" cmd /k "cd /d "%FRONTEND%" && npm run dev"
 
 echo.
 echo  ==============================================
 echo   Both servers starting in separate windows.
 echo   Backend  : http://localhost:5000
-echo   Frontend : http://localhost:3000
+echo   Frontend : http://localhost:5173
 echo   Press any key to close this launcher.
 echo  ==============================================
 echo.

@@ -36,7 +36,7 @@
                    ▼                                           ▼
       [ Vercel Frontend ]                           [ Render Backend ]
       Vite React 18 App                              Flask WSGI Server
-      Port: 3000 (Dev)                               Port: 5000 (API)
+      Port: 5173 (Dev)                               Port: 5000 (API)
                    │                                           │
                    └──────────────► REST API ◄─────────────────┘
                                        │
@@ -57,7 +57,7 @@
 
 ## ⚡ Quick Start (Local Development)
 
-Launch both backend (Flask :5000) and frontend (Vite :3000) with a single command:
+Launch both backend (Flask :5000) and frontend (Vite :5173) with a single command:
 
 ### Windows (Batch — Double Click)
 Double-click [`start.bat`](file:///d:/internship/VidhanAi-main/start.bat) in the project root.
@@ -75,11 +75,11 @@ cd backend
 python app.py
 
 # Frontend (Terminal 2)
-cd frontend
+cd frontend_new
 npm run dev
 ```
 
-Open your browser at: **`http://localhost:3000`**
+Open your browser at: **`http://localhost:5173`**
 
 ---
 
@@ -102,12 +102,12 @@ VidhanAi/
 │   ├── services/
 │   │   └── amendment_service.py# Pure-Python structural diffing engine
 │   └── requirements.txt
-├── frontend/                   # React 18 + Vite Frontend
+├── frontend_new/               # React 19 + Vite 8 Frontend
 │   ├── src/
-│   │   ├── pages/              # Home, Explore, Research, Amendments, Architecture, Playground
-│   │   ├── components/         # BillCard, SearchBar, BillDetailsModal
+│   │   ├── pages/              # Landing, Explore, Research, Amendments, Alerts, Architecture, Playground, Search
+│   │   ├── components/         # Vid, BillCard, Sidebar, AdvancedFilters, BillPicker
 │   │   └── services/api.js     # Axios API client
-│   └── vercel.json
+│   └── index.html
 ├── notebooks/                  # Training notebooks
 │   └── qlora_finetuning.ipynb  # Kaggle QLoRA Llama-3.2-3B training script
 └── docs/                       # Architectural documentation
@@ -143,7 +143,7 @@ VidhanAi/
 
 ### Frontend → Vercel.com (Free Tier)
 1. Connect repository to [Vercel.com](https://vercel.com).
-2. Root directory: `frontend` (uses [`frontend/vercel.json`](file:///d:/internship/VidhanAi-main/frontend/vercel.json)).
+2. Root directory: `frontend_new` (uses the root [`vercel.json`](file:///d:/internship/VidhanAi-main/vercel.json)).
 3. All `/api/*` routes are automatically rewritten to your Render backend host.
 
 **Total monthly cost: $0.00**

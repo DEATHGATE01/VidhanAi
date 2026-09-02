@@ -6,7 +6,7 @@
 #   .\start.ps1
 #
 # Backend  → http://localhost:5000  (Flask / app.py)
-# Frontend → http://localhost:3000  (Vite dev server)
+# Frontend → http://localhost:5173  (Vite dev server)
 #   /api/* requests are proxied by Vite → Flask automatically.
 # ═══════════════════════════════════════════════════════════════
 
@@ -17,7 +17,7 @@ param (
 $ErrorActionPreference = "Stop"
 $Root     = $PSScriptRoot
 $Backend  = Join-Path $Root "backend"
-$Frontend = Join-Path $Root "frontend"
+$Frontend = Join-Path $Root "frontend_new"
 
 # ── Colour helpers ──────────────────────────────────────────────
 function Print-Header {
@@ -71,8 +71,8 @@ function Test-Port($port) {
 if (Test-Port 5000) {
     Print-Warn "Port 5000 is already in use. Flask may already be running, or another process is on :5000."
 }
-if (Test-Port 3000) {
-    Print-Warn "Port 3000 is already in use. Vite may already be running."
+if (Test-Port 5173) {
+    Print-Warn "Port 5173 is already in use. Vite may already be running."
 }
 
 # ── Launch Flask backend ─────────────────────────────────────────
@@ -91,7 +91,7 @@ Print-Ok "Flask started  (PID $($backendJob.Id))"
 Start-Sleep -Seconds 2
 
 # ── Launch Vite frontend ─────────────────────────────────────────
-Print-Info "Starting Vite frontend on http://localhost:3000..."
+Print-Info "Starting Vite frontend on http://localhost:5173..."
 
 $frontendJob = Start-Process `
     -FilePath "npm" `
@@ -105,15 +105,15 @@ Print-Ok "Vite started   (PID $($frontendJob.Id))"
 # ── Open browser ────────────────────────────────────────────────
 if (-not $NoBrowser) {
     Start-Sleep -Seconds 3   # wait for Vite to be ready
-    Print-Info "Opening http://localhost:3000 in browser..."
-    Start-Process "http://localhost:3000"
+    Print-Info "Opening http://localhost:5173 in browser..."
+    Start-Process "http://localhost:5173"
 }
 
 # ── Summary ─────────────────────────────────────────────────────
 Write-Host ""
 Write-Host "  ================================================" -ForegroundColor DarkGray
 Write-Host "   Backend  : http://localhost:5000" -ForegroundColor White
-Write-Host "   Frontend : http://localhost:3000" -ForegroundColor White
+Write-Host "   Frontend : http://localhost:5173" -ForegroundColor White
 Write-Host ""
 Write-Host "   Press Ctrl+C to stop this script." -ForegroundColor DarkGray
 Write-Host "   (The two server windows will stay open; close them manually.)" -ForegroundColor DarkGray
