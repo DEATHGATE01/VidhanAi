@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { ArrowRight } from 'lucide-react'
+import Vid from '../components/Vid'
 
 const FEATURES = [
   { icon: '🤖', chip: 'icon-purple', title: 'Multi-Agent Research', description: 'CrewAI orchestrator dispatches 7 specialist tools — bill lookup, semantic search, summarizer, fact-checker, amendment diff, citations.', path: '/research' },
@@ -20,12 +21,15 @@ export default function LandingPage() {
     <div className="animate-fade-in">
       {/* Hero */}
       <section className="container" style={{ paddingTop: '4.5rem', paddingBottom: '3rem', textAlign: 'center' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.4rem' }}>
+          <Vid size={128} expression="cheerful" className="animate-float" lively label="Vid, the VidhanAI mascot" />
+        </div>
         <span className="badge badge-vidhan" style={{ fontSize: '0.78rem', padding: '0.35rem 0.9rem' }}>
           Delta-Aware Amendment Summarization · Live
         </span>
         <h1 style={{ fontSize: 'clamp(2.2rem, 5vw, 3.4rem)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.12, margin: '1rem 0 1.1rem' }}>
           Indian Legislation,{' '}
-          <span style={{ color: '#818cf8' }}>Decoded by AI</span>
+          <span style={{ color: 'var(--accent)' }}>Decoded by AI</span>
         </h1>
         <p style={{ color: 'var(--text-2)', fontSize: '1.02rem', lineHeight: 1.7, maxWidth: 640, margin: '0 auto 2rem' }}>
           VidhanAI translates dense parliamentary bills into plain English using a QLoRA fine-tuned
@@ -71,7 +75,7 @@ export default function LandingPage() {
                 <div>
                   <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: '0 0 0.35rem' }}>{f.title}</h3>
                   <p style={{ color: 'var(--text-2)', fontSize: '0.86rem', lineHeight: 1.6, margin: 0 }}>{f.description}</p>
-                  <span className="inline-flex items-center gap-1 mt-3 text-sm font-semibold" style={{ color: '#818cf8' }}>
+                  <span className="inline-flex items-center gap-1 mt-3 text-sm font-semibold" style={{ color: 'var(--accent)' }}>
                     Explore <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" />
                   </span>
                 </div>

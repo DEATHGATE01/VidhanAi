@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { searchBills } from '../services/api'
+import Vid from '../components/Vid'
 
 // Semantic search UI — GET /api/semantic-search (ChromaDB + input guardrails).
 // A 403 with is_guardrailed=true means the query was blocked by the
@@ -62,7 +63,7 @@ export default function SearchPage() {
           </button>
         </div>
         {error && (
-          <p role="alert" style={{ marginTop: '0.85rem', color: guardrailed ? '#fbbf24' : '#f87171', fontSize: '0.85rem', marginBottom: 0 }}>
+          <p role="alert" style={{ marginTop: '0.85rem', color: guardrailed ? 'var(--warn)' : 'var(--danger)', fontSize: '0.85rem', marginBottom: 0 }}>
             {guardrailed ? '🛡️ Guardrail: ' : '⚠️ '}{error}
           </p>
         )}
@@ -70,7 +71,7 @@ export default function SearchPage() {
 
       {searched && !loading && results.length === 0 && !error && (
         <div className="empty-state" style={{ padding: '3rem 1rem' }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem', opacity: 0.5 }}>🫥</div>
+          <Vid size={64} expression="curious" lively style={{ margin: '0 auto 1rem' }} />
           <p className="empty-state-text">No bills matched that meaning. Try rephrasing.</p>
         </div>
       )}

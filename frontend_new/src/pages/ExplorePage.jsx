@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Download } from 'lucide-react'
 import { getAllBills } from '../services/api'
 import BillCard from '../components/BillCard'
 import AdvancedFilters from '../components/AdvancedFilters'
+import Vid from '../components/Vid'
 
 // Explore all bills — GET /api/bills (page 1, 100 rows) with client-side
 // filtering, sorting, grid/list views, bulk select + CSV export.
@@ -154,7 +155,7 @@ export default function ExplorePage() {
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center', marginBottom: '1.25rem' }}>
         <span style={{ color: 'var(--text-1)', fontSize: '0.85rem' }}>
           <strong>{sorted.length}</strong> bill{sorted.length === 1 ? '' : 's'}
-          {selectedBills.size > 0 && <span style={{ color: '#34d399' }}> · {selectedBills.size} selected</span>}
+          {selectedBills.size > 0 && <span style={{ color: 'var(--ok)' }}> · {selectedBills.size} selected</span>}
         </span>
 
         <label htmlFor="explore-sort" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0,0,0,0)' }}>Sort bills</label>
@@ -198,14 +199,14 @@ export default function ExplorePage() {
 
       {!loading && error && (
         <div className="glass-panel rounded-xl" style={{ padding: '2rem', textAlign: 'center' }}>
-          <p style={{ color: '#f87171', margin: 0 }}>⚠️ {error}</p>
+          <p style={{ color: 'var(--danger)', margin: 0 }}>⚠️ {error}</p>
           <p className="empty-state-text" style={{ marginTop: '0.5rem' }}>Is the backend running on :5000?</p>
         </div>
       )}
 
       {!loading && !error && paginated.length === 0 && (
         <div className="empty-state" style={{ padding: '4rem 1rem' }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem', opacity: 0.5 }}>📄</div>
+          <Vid size={64} expression="curious" lively style={{ margin: '0 auto 1rem' }} />
           <p className="empty-state-text">No bills match your criteria.</p>
           <button type="button" onClick={clearFilters} className="btn btn-secondary" style={{ marginTop: '0.85rem' }}>
             Clear All Filters
