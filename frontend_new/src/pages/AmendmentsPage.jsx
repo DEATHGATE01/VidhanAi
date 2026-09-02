@@ -69,7 +69,7 @@ export default function AmendmentsPage() {
           {loading ? <><span className="spinner-ring" /> Computing delta…</> : '⚖️ Compute Diff'}
         </button>
         {error && (
-          <p role="alert" style={{ marginTop: '0.85rem', color: '#f87171', fontSize: '0.85rem', marginBottom: 0 }}>
+          <p role="alert" style={{ marginTop: '0.85rem', color: 'var(--danger)', fontSize: '0.85rem', marginBottom: 0 }}>
             ⚠️ {error}
           </p>
         )}
@@ -93,7 +93,7 @@ export default function AmendmentsPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.75rem', marginBottom: '1.25rem' }}>
             {Object.entries(result.stats || {}).map(([k, val]) => (
               <div key={k} className="glass-panel rounded-xl text-center" style={{ padding: '0.85rem 0.5rem' }}>
-                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#a5b4fc' }}>{String(val)}</div>
+                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--accent-2)' }}>{String(val)}</div>
                 <div style={{ fontSize: '0.7rem', color: 'var(--text-2)', fontWeight: 600, textTransform: 'uppercase' }}>{STATS_LABELS[k] || k.replace(/_/g, ' ')}</div>
               </div>
             ))}
@@ -101,7 +101,7 @@ export default function AmendmentsPage() {
 
           {/* Narrative */}
           <section className="glass-panel rounded-2xl" style={{ padding: '1.25rem', marginBottom: '1.25rem' }} aria-label="Change narrative">
-            <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#a5b4fc', margin: '0 0 0.5rem' }}>🧠 Change Narrative</h2>
+            <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--accent-2)', margin: '0 0 0.5rem' }}>🧠 Change Narrative</h2>
             <p style={{ margin: 0, color: 'var(--text-1)', fontSize: '0.92rem', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
               {result.narrative || result.diff_summary_text}
             </p>
@@ -117,7 +117,7 @@ export default function AmendmentsPage() {
           {/* Facts */}
           {(result.facts_added?.length > 0 || result.facts_removed?.length > 0) && (
             <section className="glass-panel rounded-2xl" style={{ padding: '1.25rem', marginTop: '1.25rem' }} aria-label="Factual changes">
-              <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#a5b4fc', margin: '0 0 0.65rem' }}>🔢 Factual Figure Changes</h2>
+              <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--accent-2)', margin: '0 0 0.65rem' }}>🔢 Factual Figure Changes</h2>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.45rem' }}>
                 {(result.facts_added || []).map((f, i) => (
                   <span key={`a${i}`} className="badge badge-emerald">+ {String(f)}</span>
@@ -135,7 +135,7 @@ export default function AmendmentsPage() {
 }
 
 function SectionList({ tone, icon, heading, sections }) {
-  const borderTone = { emerald: '#34d399', rose: '#f43f5e', amber: '#f59e0b' }[tone]
+  const borderTone = { emerald: 'var(--ok)', rose: 'var(--danger)', amber: 'var(--warn)' }[tone]
   return (
     <section className="glass-panel rounded-2xl" style={{ padding: '1rem', borderLeft: `3px solid ${borderTone}` }} aria-label={heading}>
       <h3 style={{ fontSize: '0.82rem', fontWeight: 700, margin: '0 0 0.6rem', color: borderTone }}>

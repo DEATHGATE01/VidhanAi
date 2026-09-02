@@ -48,7 +48,7 @@ export default function BillPicker({ bills, value, onChange, loading, idPrefix =
           style={{
             position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0,
             maxHeight: 300, overflowY: 'auto',
-            zIndex: 50, boxShadow: '0 12px 32px rgba(0,0,0,0.45)',
+            zIndex: 50, boxShadow: 'var(--shadow-lg)',
           }}
         >
           <div style={{ position: 'sticky', top: 0, padding: '0.6rem', background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
@@ -96,7 +96,7 @@ export default function BillPicker({ bills, value, onChange, loading, idPrefix =
                       style={{
                         width: '100%', textAlign: 'left', fontSize: '0.84rem',
                         background: isSel ? 'var(--accent-soft)' : 'transparent',
-                        color: isSel ? '#c7d2fe' : 'var(--text-1)',
+                        color: isSel ? 'var(--accent-3)' : 'var(--text-1)',
                       }}
                     >
                       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</span>

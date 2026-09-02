@@ -14,7 +14,7 @@ const STATUSES = ['Passed', 'Draft', 'Lapsed', 'Withdrawn', 'In Committee', 'Pen
 const selectStyle = {
   width: '100%',
   padding: '0.6rem 0.85rem',
-  background: 'rgba(8,10,18,0.7)',
+  background: 'var(--surface-2)',
   border: '1px solid var(--border-strong)',
   borderRadius: 10,
   color: 'var(--text-1)',

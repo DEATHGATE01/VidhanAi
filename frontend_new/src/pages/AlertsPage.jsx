@@ -114,11 +114,11 @@ export default function AlertsPage() {
       </header>
 
       {success && (
-        <div role="status" className="card animate-fade-in" style={{ padding: '1.1rem 1.25rem', marginBottom: '1.1rem', borderLeft: '3px solid #34d399' }}>
+        <div role="status" className="card animate-fade-in" style={{ padding: '1.1rem 1.25rem', marginBottom: '1.1rem', borderLeft: '3px solid var(--ok)' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
-            <CheckCircle size={18} color="#34d399" />
+            <CheckCircle size={18} color="var(--ok)" />
             <div style={{ flex: 1 }}>
-              <strong style={{ color: '#34d399', fontSize: '0.88rem' }}>{success.billTracked ? 'Bill tracker active' : 'Subscription active'}</strong>
+              <strong style={{ color: 'var(--ok)', fontSize: '0.88rem' }}>{success.billTracked ? 'Bill tracker active' : 'Subscription active'}</strong>
               <p style={{ margin: '0.25rem 0 0', color: 'var(--text-1)', fontSize: '0.86rem', lineHeight: 1.55 }}>{success.message}</p>
             </div>
             <button type="button" onClick={() => setSuccess(null)} aria-label="Dismiss" style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer' }}>
@@ -128,8 +128,8 @@ export default function AlertsPage() {
         </div>
       )}
       {error && (
-        <div role="alert" className="card" style={{ padding: '0.9rem 1.25rem', marginBottom: '1.1rem', borderLeft: '3px solid #f87171' }}>
-          <p style={{ margin: 0, color: '#f87171', fontSize: '0.86rem' }}>⚠️ {error}</p>
+        <div role="alert" className="card" style={{ padding: '0.9rem 1.25rem', marginBottom: '1.1rem', borderLeft: '3px solid var(--danger)' }}>
+          <p style={{ margin: 0, color: 'var(--danger)', fontSize: '0.86rem' }}>⚠️ {error}</p>
         </div>
       )}
 
@@ -185,7 +185,7 @@ export default function AlertsPage() {
                 {keywords.map((k) => (
                   <span key={k} className="badge badge-vidhan" style={{ fontSize: '0.78rem', padding: '0.3rem 0.7rem' }}>
                     {k}
-                    <button type="button" onClick={() => removeKeyword(k)} aria-label={`Remove ${k}`} style={{ background: 'none', border: 'none', color: '#a5b4fc', cursor: 'pointer', marginLeft: '0.3rem' }}>✕</button>
+                    <button type="button" onClick={() => removeKeyword(k)} aria-label={`Remove ${k}`} style={{ background: 'none', border: 'none', color: 'var(--accent-3)', cursor: 'pointer', marginLeft: '0.3rem' }}>✕</button>
                   </span>
                 ))}
               </div>
@@ -213,7 +213,7 @@ export default function AlertsPage() {
                   onClick={() => toggleMinistry(m)}
                   aria-pressed={ministries.includes(m)}
                   className="chip"
-                  style={ministries.includes(m) ? { background: 'var(--accent-soft)', borderColor: 'rgba(99,102,241,.5)', color: '#c7d2fe' } : undefined}
+                  style={ministries.includes(m) ? { background: 'var(--accent-soft)', borderColor: 'rgba(99,102,241,.5)', color: 'var(--accent-3)' } : undefined}
                 >
                   {m}
                 </button>

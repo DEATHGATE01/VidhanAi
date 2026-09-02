@@ -70,7 +70,7 @@ export default function PlaygroundPage() {
           </button>
         </div>
         {error && (
-          <p role="alert" style={{ marginTop: '0.85rem', color: '#f87171', fontSize: '0.85rem', marginBottom: 0 }}>⚠️ {error}</p>
+          <p role="alert" style={{ marginTop: '0.85rem', color: 'var(--danger)', fontSize: '0.85rem', marginBottom: 0 }}>⚠️ {error}</p>
         )}
       </form>
 
@@ -100,7 +100,7 @@ export default function PlaygroundPage() {
             )}
           </div>
 
-          <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#a5b4fc', margin: '0 0 0.5rem' }}>📝 Plain-English Summary</h2>
+          <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--accent-2)', margin: '0 0 0.5rem' }}>📝 Plain-English Summary</h2>
           <p style={{ margin: 0, color: 'var(--text-1)', fontSize: '0.95rem', lineHeight: 1.75, whiteSpace: 'pre-wrap' }}>
             {summary.summary}
           </p>

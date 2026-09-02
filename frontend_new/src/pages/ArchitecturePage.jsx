@@ -18,7 +18,7 @@ export default function ArchitecturePage() {
     return (
       <div className="container" style={{ padding: '3rem 1rem' }}>
         <div className="glass-panel rounded-2xl" style={{ padding: '2rem', textAlign: 'center' }}>
-          <p style={{ color: '#f87171', margin: '0 0 0.5rem' }}>⚠️ {error}</p>
+          <p style={{ color: 'var(--danger)', margin: '0 0 0.5rem' }}>⚠️ {error}</p>
           <p className="empty-state-text">Is the backend running on :5000?</p>
         </div>
       </div>
@@ -94,7 +94,7 @@ export default function ArchitecturePage() {
         {(arch.tools || []).map((t) => (
           <InfoCard key={t.name} icon={t.icon || '🔧'} title={t.name}>
             <Meta>{t.description}</Meta>
-            {t.endpoint && <code style={{ fontSize: '0.72rem', color: '#60a5fa' }}>{t.endpoint}</code>}
+            {t.endpoint && <code style={{ fontSize: '0.72rem', color: 'var(--info)' }}>{t.endpoint}</code>}
           </InfoCard>
         ))}
       </CardGrid>
@@ -105,7 +105,7 @@ export default function ArchitecturePage() {
 function CardGrid({ heading, children }) {
   return (
     <section style={{ marginBottom: '1.75rem' }} aria-label={heading}>
-      <h2 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#a5b4fc', margin: '0 0 0.75rem' }}>{heading}</h2>
+      <h2 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--accent-2)', margin: '0 0 0.75rem' }}>{heading}</h2>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))', gap: '0.85rem' }}>
         {children}
       </div>

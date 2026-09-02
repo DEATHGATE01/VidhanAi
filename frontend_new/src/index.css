@@ -28,23 +28,94 @@
 }
 
 /* ============================================================
-   VidhanAI design system — dark variant of the CRM SaaS reference.
+   VidhanAI design system — clean light theme with an AMOLED
+   black dark variant. All colors are CSS custom properties that
+   flip via <html data-theme="light|dark"> (set by ThemeContext).
    Floating sidebar, flat cards, hairline borders, soft indigo
    accent, status pills.
    ============================================================ */
 
 :root {
-  --bg: #0b0f1a;
-  --surface: #121726;
-  --surface-2: #171d2e;
-  --border: rgba(255, 255, 255, 0.07);
-  --border-strong: rgba(255, 255, 255, 0.12);
-  --text-1: #e7eaf3;
-  --text-2: #8a93a6;
-  --text-3: #5b6478;
+  color-scheme: light;
+
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f4f5f7;
+  --border: #e7e9ee;
+  --border-strong: #d3d7de;
+  --text-1: #16181d;
+  --text-2: #4b5563;
+  --text-3: #6b7280;
   --accent: #6366f1;
-  --accent-soft: rgba(99, 102, 241, 0.14);
+  --accent-hover: #4f46e5;
+  --accent-soft: rgba(99, 102, 241, 0.10);
+  --accent-2: #4f46e5;      /* readable indigo text on light bg */
+  --accent-3: #4338ca;      /* readable indigo-strong on light bg */
+  --on-accent: #ffffff;
+  --hover: rgba(15, 23, 42, 0.05);
+  --backdrop: rgba(255, 255, 255, 0.75);
+  --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.16);
+  --scrollbar: #cfd4dd;
+  --ok: #047857;            /* emerald-700 */
+  --danger: #be123c;        /* rose-700 */
+  --warn: #b45309;          /* amber-700 */
+  --info: #1d4ed8;          /* blue-700 */
+  --info-2: #0e7490;        /* cyan-700 */
+  --orb: #ece4fc;           /* Vid mascot: lavender orb fill (pops on white) */
+  --orb-hi: rgba(255, 255, 255, 0.75);
+  --coat: #4338ca;          /* Vid mascot: bandhgala */
+  --coat-collar: #3730a3;
+  --gold: #a16207;          /* Vid mascot: scales + button */
+  --eye: #22262f;
+  --blush: rgba(236, 72, 153, 0.16);
+  --chat-bg: #f5f7f6;
+  --chat-glow: radial-gradient(460px 320px at 10% -10%, rgba(99, 102, 241, 0.14), transparent 70%);
+  --chat-surface: #ffffff;
+  --chat-card: #ffffff;
+  --chat-input-bg: #ffffff;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06), 0 4px 14px rgba(15, 23, 42, 0.06);
   --radius: 14px;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #000000;            /* AMOLED black */
+  --surface: #0a0a0a;
+  --surface-2: #141414;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --text-1: #f4f4f5;
+  --text-2: #a1a1aa;
+  --text-3: #6f6f78;
+  --accent: #6366f1;
+  --accent-hover: #575af5;
+  --accent-soft: rgba(99, 102, 241, 0.16);
+  --accent-2: #a5b4fc;      /* indigo-300 */
+  --accent-3: #c7d2fe;      /* indigo-200 */
+  --on-accent: #ffffff;
+  --hover: rgba(255, 255, 255, 0.06);
+  --backdrop: rgba(0, 0, 0, 0.7);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.6);
+  --scrollbar: #262626;
+  --ok: #34d399;            /* emerald-400 */
+  --danger: #fb7185;        /* rose-400 */
+  --warn: #fbbf24;          /* amber-400 */
+  --info: #60a5fa;          /* blue-400 */
+  --info-2: #22d3ee;        /* cyan-400 */
+  --orb: #2a2447;           /* Vid mascot: indigo-tinted orb (pops on black) */
+  --orb-hi: rgba(255, 255, 255, 0.12);
+  --coat: #4f46e5;          /* Vid mascot: bandhgala */
+  --coat-collar: #6366f1;
+  --gold: #fbbf24;          /* Vid mascot: scales + button */
+  --eye: #f4f4f5;
+  --blush: rgba(244, 114, 182, 0.30);
+  --chat-bg: #0a0a0a;
+  --chat-glow: radial-gradient(460px 320px at 10% -10%, rgba(129, 140, 248, 0.16), transparent 70%);
+  --chat-surface: #141414;
+  --chat-card: #141414;
+  --chat-input-bg: #141414;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.6), 0 6px 18px rgba(0, 0, 0, 0.5);
 }
 
 @layer base {
@@ -63,7 +134,7 @@
 
   ::-webkit-scrollbar { width: 8px; height: 8px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: #2a3145; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 4px; }
 }
 
 @layer components {
@@ -91,12 +162,12 @@
     color: var(--text-1); background: transparent;
   }
   .btn:disabled { opacity: .45; cursor: not-allowed; }
-  .btn-primary { background: var(--accent); color: #fff; }
-  .btn-primary:hover:not(:disabled) { background: #575af5; box-shadow: 0 4px 16px rgba(99,102,241,.3); }
+  .btn-primary { background: var(--accent); color: var(--on-accent); }
+  .btn-primary:hover:not(:disabled) { background: var(--accent-hover); box-shadow: 0 4px 16px rgba(99,102,241,.3); }
   .btn-secondary { background: var(--surface-2); border-color: var(--border-strong); }
-  .btn-secondary:hover:not(:disabled) { border-color: rgba(255,255,255,.22); }
+  .btn-secondary:hover:not(:disabled) { border-color: var(--border-strong); }
   .btn-ghost { color: var(--text-2); }
-  .btn-ghost:hover:not(:disabled) { background: rgba(255,255,255,.05); color: var(--text-1); }
+  .btn-ghost:hover:not(:disabled) { background: var(--hover); color: var(--text-1); }
 
   /* ---- Inputs ---- */
   .input, .premium-input {
@@ -123,11 +194,11 @@
     padding: .18rem .6rem; border-radius: 999px;
     font-size: .72rem; font-weight: 600; line-height: 1.4;
   }
-  .badge-vidhan  { background: var(--accent-soft); color: #a5b4fc; border: 1px solid rgba(99,102,241,.25); }
-  .badge-emerald { background: rgba(16,185,129,.12); color: #34d399; border: 1px solid rgba(16,185,129,.25); }
-  .badge-amber   { background: rgba(245,158,11,.12); color: #fbbf24; border: 1px solid rgba(245,158,11,.25); }
-  .badge-rose    { background: rgba(244,63,94,.12);  color: #fb7185; border: 1px solid rgba(244,63,94,.25); }
-  .badge-slate   { background: rgba(255,255,255,.05); color: var(--text-2); border: 1px solid var(--border); }
+  .badge-vidhan  { background: var(--accent-soft); color: var(--accent-2); border: 1px solid rgba(99,102,241,.25); }
+  .badge-emerald { background: rgba(16,185,129,.12); color: var(--ok); border: 1px solid rgba(16,185,129,.25); }
+  .badge-amber   { background: rgba(245,158,11,.12); color: var(--warn); border: 1px solid rgba(245,158,11,.25); }
+  .badge-rose    { background: rgba(244,63,94,.12);  color: var(--danger); border: 1px solid rgba(244,63,94,.25); }
+  .badge-slate   { background: var(--hover); color: var(--text-2); border: 1px solid var(--border); }
 
   .chip {
     font-size: .78rem; font-weight: 500;
@@ -176,8 +247,8 @@
     color: var(--text-2); text-decoration: none;
     transition: all .15s;
   }
-  .sidebar-link:hover { color: var(--text-1); background: rgba(255,255,255,.04); }
-  .sidebar-link.active { background: var(--accent-soft); color: #c7d2fe; }
+  .sidebar-link:hover { color: var(--text-1); background: var(--hover); }
+  .sidebar-link.active { background: var(--accent-soft); color: var(--accent-3); }
   .sidebar-link.active svg { color: var(--accent); }
 
   .app-main { margin-left: 260px; min-height: 100vh; display: flex; flex-direction: column; }
@@ -193,7 +264,6 @@
   /* ---- Chat ---- */
   .bot-avatar {
     width: 28px; height: 28px; border-radius: 9px;
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
     display: inline-flex; align-items: center; justify-content: center;
     font-size: .75rem; flex-shrink: 0; margin-right: .6rem; align-self: flex-end;
   }
@@ -218,6 +288,29 @@
     color: var(--text-2);
   }
 
+  /* ---- Ask VidhanAI workspace (ResearchPage) ---- */
+  .ask-page {
+    display: flex; flex-direction: column;
+    min-height: min(880px, calc(100dvh - 9.5rem));
+    background: var(--chat-bg);
+  }
+  @media (max-width: 1023px) {
+    .ask-page { min-height: calc(100dvh - 14rem); }
+  }
+  .ask-kpi { width: 264px; }
+  @media (max-width: 1023px) {
+    .ask-kpi { display: none; }
+  }
+  .typing-dots { display: inline-flex; gap: 3px; }
+  .typing-dots i {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--text-3);
+    animation: typing-blink 1.3s infinite ease-in-out;
+  }
+  .typing-dots i:nth-child(2) { animation-delay: .2s; }
+  .typing-dots i:nth-child(3) { animation-delay: .4s; }
+  @keyframes typing-blink { 0%, 60%, 100% { opacity: .3; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-2px); } }
+
   /* ---- Misc ---- */
   .spinner-ring {
     display: inline-block; width: 15px; height: 15px;
@@ -229,6 +322,7 @@
   .container { max-width: 1200px; margin: 0 auto; padding-left: 1.25rem; padding-right: 1.25rem; }
 
   @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes floaty { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
   @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
   @keyframes fade-in-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
   @keyframes pulse-glow { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
@@ -236,5 +330,31 @@
 
 @layer utilities {
   .animate-fade-in { animation: fade-in .4s ease-out both; }
+  .animate-float { animation: floaty 5s ease-in-out infinite; }
   .text-secondary { color: var(--text-2); }
+}
+
+/* ---- Vid mascot movement (gated by .vid-lively / .vid-walking) ---- */
+.vid-lively .vid-bob { animation: vid-bob 2.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+.vid-lively .vid-arm-r { animation: vid-wave 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: 80% 12%; }
+
+.vid-walking .vid-bob { animation: vid-walk-bob 0.55s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+.vid-walking .vid-leg-l { animation: vid-leg-l 0.55s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 8%; }
+.vid-walking .vid-leg-r { animation: vid-leg-r 0.55s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 8%; }
+.vid-walking .vid-arm-l { animation: vid-arm-l 0.55s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 10%; }
+.vid-walking .vid-arm-r { animation: vid-arm-r 0.55s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 10%; }
+
+@keyframes vid-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@keyframes vid-wave { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-20deg); } }
+@keyframes vid-walk-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@keyframes vid-leg-l { 0%, 100% { transform: rotate(-14deg); } 50% { transform: rotate(14deg); } }
+@keyframes vid-leg-r { 0%, 100% { transform: rotate(14deg); } 50% { transform: rotate(-14deg); } }
+@keyframes vid-arm-l { 0%, 100% { transform: rotate(14deg); } 50% { transform: rotate(-14deg); } }
+@keyframes vid-arm-r { 0%, 100% { transform: rotate(-14deg); } 50% { transform: rotate(14deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-float { animation: none; }
+  .vid-lively .vid-bob, .vid-lively .vid-arm-r,
+  .vid-walking .vid-bob, .vid-walking .vid-leg-l, .vid-walking .vid-leg-r,
+  .vid-walking .vid-arm-l, .vid-walking .vid-arm-r { animation: none; }
 }

@@ -43,7 +43,7 @@ export default function BillCard({ bill, onViewDetails, onAddFavorite, isSelecte
             borderRadius: 6,
             border: '1px solid var(--border-strong)',
             background: isSelected ? 'var(--accent)' : 'transparent',
-            color: '#fff',
+            color: 'var(--on-accent)',
             fontSize: '0.7rem',
             lineHeight: 1,
             cursor: 'pointer',
