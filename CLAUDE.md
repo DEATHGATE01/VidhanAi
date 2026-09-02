@@ -176,6 +176,58 @@ clicked through against a live backend in Chrome):
   replaced v3-style `tailwindcss` plugin in postcss.config.js). `axios` added to
   dependencies. Vite proxy `/api → http://127.0.0.1:5000` active. index.html title
   set to product name.
+- Theme system (2026-08-31): light/dark mode with toggle. `src/context/ThemeContext.jsx`
+  (`ThemeProvider`/`useTheme`) persists key `vidhanai-theme` in localStorage, respects
+  `prefers-color-scheme` on first visit, and mirrors onto `<html data-theme>`.
+  `index.html` carries an inline anti-FOUC script so reloads never flash the wrong mode.
+  `src/components/ThemeToggle.jsx` (Sun/Moon) renders in the Sidebar desktop footer +
+  mobile top bar. `index.css`: `:root` = clean white light tokens,
+  `[data-theme="dark"]` = AMOLED black; all hardcoded dark-only colors swapped for
+  semantic vars (`--ok`/`--danger`/`--warn`/`--info`/`--accent-2`/`--accent-3`/
+  `--on-accent`/`--hover`/`--backdrop`/`--shadow-lg`/`--scrollbar`). Verified: `npm run
+  build` passes; toggle round-trip, persistence + reload confirmed in Chrome.
+- Mascot "Vid" (2026-08-31, revised 2026-09-02): a friendly AI bot with the scales of
+  justice balanced on its head — two eyes + smile read as a character at a glance, the ⚖️
+  signals law, and tiny arms + legs (each limb its own `<g>`). Body = LAVENDER orb with a
+  4px accent-purple outline (light `--orb #ece4fc` / dark `#2a2447`; the outline +
+  tint fix a "white blends into background" visibility bug), big sparkly eyes (11.5r +
+  double highlights), rosy blush, wide smile. `src/components/Vid.jsx` is a theme-aware
+  React SVG (expressions: cheerful/wink/curious; all shapes inlined so instances never
+  collide). Movement is class-gated so small/logo instances stay still: `lively` = bob +
+  right-arm wave (greeting, landing hero, empty states, answer byline); `walking` =
+  swinging legs/arms + bob (the AI "searching" state); both disabled under
+  `prefers-reduced-motion`. In the Ask VidhanAI greeting Vid is 112px standing on a
+  blurred ground-shadow ellipse. Placed in: Landing hero, Ask VidhanAI
+  greeting/processing/answer, Sidebar logo (mobile 24 / desktop 28), Explore + Search
+  empty states (64px). Mascot tokens (`--orb`/`--orb-hi`/`--coat`/`--coat-collar`/
+  `--gold`/`--eye`/`--blush`) in both themes. `public/favicon.svg` is the Vid mark
+  (standalone colors, lavender orb + outline). `npm run build` passes; contrast verified
+  in Chrome in both themes (orb vs canvas distinct, no console errors).
+- "Ask VidhanAI" chat (2026-09-02): ResearchPage is an OPEN Brik-style workspace (no boxed
+  chat panel): the page itself is the `--chat-bg` canvas (light #F5F7F6 / AMOLED #0a0a0a)
+  with the lavender `--chat-glow` at upper-left, an IDLE → PROCESSING → RESULT state
+  machine, and generous 2rem gutters. Header = "Ask VidhanAI" + subtitle + a pill-styled
+  CrewAI LLM-planner toggle. IDLE: center-left greeting — 96px Vid (lively, standing on a
+  blurred ground-shadow ellipse) + time-aware "Good morning, VidhanAI is ready for
+  Parliament." + description. PROCESSING: query in a lavender right-aligned bubble, a
+  4-stage progress pipeline (STAGES: Understanding → Searching PRS/ChromaDB →
+  Cross-checking → Writing; advances every 2.6s), a contextual operation message, and a
+  centered WALKING mascot on a ground shadow — no generic spinner; input disabled +
+  suggestions hidden while running. RESULT: query bubble + a white answer card (Vid
+  byline + agent text + source-URL citation chips). Right column (`.ask-kpi`, hidden on
+  mobile, no divider) = "RIGHT NOW" + 3 KPI cards (958+ bills / 7 agents / 140+ full-text,
+  static) + TODAY summary bar; persists across phases. Bottom = white pill input (purple
+  border + glow, 18px radius) + solid indigo Ask button + 6 white suggestion chips.
+  Agent-trace panel removed. Tokens `--chat-bg/--chat-glow/--chat-surface/--chat-card/
+  --chat-input-bg/--shadow-sm` in both themes. `.ask-page` sizes the workspace
+  (min-height `min(880px, calc(100dvh - 9.5rem))`, mobile override). `npm run build`
+  passes; verified in Chrome (both themes; idle→processing→result; no console errors).
+  NOTE: `/agent/research` intermittently 502s even with Flask up — the known
+  dev-reloader flakiness; retry usually succeeds.
+- Local fine-tuned model serving (2026-09-02): `backend/ai_service.py` gained an
+  **Ollama backend** so the app can generate summaries with the QLoRA fine-tuned
+  Llama-3.2-3B (served on the laptop's CPU) instead of Groq — see Phase E in §6
+  for the env vars, new scripts, and the remaining manual (Kaggle/Ollama) steps.
 
 Known non-frontend items discovered during verification:
 1. **ChromaDB collection `legal_bills` does not exist** → semantic search always
@@ -252,12 +304,59 @@ subscribing at http://localhost:5173/alerts delivers real email.
 4. Test end-to-end: subscribe via UI → welcome email; insert fake new bill →
    run check workflow → alert email; flip a tracked bill's status → status email.
 
+### Phase E — Local fine-tuned model in the running app (IN PROGRESS, 2026-09-02)
+
+**User decision:** the app's bill summaries must be produced by the locally
+fine-tuned Llama-3.2-3B (not Groq) during the in-person demo; the public URL
+(Vercel → Render) keeps Groq for the course's deploy requirement. Laptop =
+Ryzen 7 5700U / 13.8 GB RAM / no NVIDIA GPU → the PyTorch `local_lora` path
+can't run there; the working route is a **Q4 GGUF on CPU via Ollama**.
+
+**Code done & verified (2026-09-02):**
+- `backend/ai_service.py`: new **Ollama backend**. When `VIDHANAI_USE_OLLAMA=1`,
+  summaries + amendment narratives are generated FIRST by the fine-tuned model and
+  stamped `model_version = local_ollama_<model>`; TL;DR extraction routes through
+  the same backend chain so a fine-tuned summary never triggers a hidden Groq call.
+  Unset (public deploy) → unchanged `groq_compound`. New env vars:
+  `VIDHANAI_OLLAMA_URL` (default `http://127.0.0.1:11434/v1`),
+  `VIDHANAI_OLLAMA_MODEL` (default `vidhanai`), `VIDHANAI_OLLAMA_MAX_TOKENS`
+  (default `384`). No new pip deps.
+- `backend/scripts/maintenance/regenerate_summaries_for_ft.py` (NEW): deletes the
+  cached `BillSummary` row for given bill ids (or `--all`), regenerates under the
+  enabled backends, prints the resulting `model_version`/latency — needed because
+  `get_or_generate_bill_summary` returns the cache and would otherwise mask the
+  local model with an old Groq summary. Run with:
+  `VIDHANAI_USE_OLLAMA=1 python scripts/maintenance/regenerate_summaries_for_ft.py <ids>`
+- `notebooks/export_lora_to_gguf.ipynb` (NEW): one-time Kaggle free-T4 run — loads
+  the adapter dir, merges, saves a Q4_K_M GGUF (~2 GB) for local Ollama.
+- `notebooks/roundtrip_lora.py`: added `--bundle-adapter` (zips
+  `notebooks/lora_model/` for Kaggle Dataset upload).
+- `backend/Modelfile.ollama` (NEW): registers the GGUF as Ollama model `vidhanai`.
+- Verified: `py_compile` clean on all changed files; with `VIDHANAI_USE_OLLAMA=1`
+  and Ollama unreachable, summaries degrade to `rule_based_extractive_v1` with no
+  Groq key and no hidden Groq call.
+
+**Remaining MANUAL steps (need the user's laptop + Kaggle):**
+1. `python notebooks/roundtrip_lora.py --bundle-adapter` → upload the zip to a
+   new Kaggle Dataset.
+2. Run `notebooks/export_lora_to_gguf.ipynb` on Kaggle → download the GGUF →
+   rename to `vidhanai-lora-q4_k_m.gguf` under `D:\models\vidhanai\`.
+3. Install Ollama (Windows, free) → fix the `FROM` path in
+   `backend/Modelfile.ollama` → `ollama create vidhanai -f backend/Modelfile.ollama`.
+4. Run backend with `VIDHANAI_USE_OLLAMA=1` and **no** `GROQ_API_KEY`; regenerate
+   4–5 demo bills; confirm `local_ollama_vidhanai` stamps. First hit per bill is
+   slow (~20–45 s on CPU), DB-cached afterwards — pre-warm the demo bills.
+5. Public deploy needs **no code change**: root `vercel.json` already rewrites
+   `/api` → `vidhanai-backend.onrender.com`; set `GROQ_API_KEY` + seed the DB on
+   Render. Its summaries stay `groq_compound` — honest and sufficient for the
+   course deploy requirement.
+
 ### Phase B — Consolidation & hygiene (after Phase A works)
 
-- [ ] **B1.** Delete `frontend/` (stub) OR repoint root `vercel.json` +
-      `start.ps1`/`start.bat` to `frontend_new`, then remove the stub. Pick ONE
-      frontend directory name going forward. If renaming to `frontend`, update:
-      README quick-start, vercel.json `rootDir`, both launcher scripts, CORS note.
+- [x] **B1.** (2026-09-01) Repointed `start.bat`, `start.ps1`, and `vercel.json` to
+      `frontend_new`; README quick-start + repo map updated to `frontend_new` / :5173.
+      No `frontend/` stub exists on disk — `frontend_new` is the single frontend dir.
+      `backend/app.py` CORS still lists the extra `:3000` origins (harmless superset).
 - [ ] **B2.** Initialize git (`git init` + sensible `.gitignore` covering
       `node_modules/`, `backend/instance/*.db`, `backend/.env`, `__pycache__/`,
       `.ruff_cache/`, `notebooks/lora_model/adapter_model.safetensors`) and make an
