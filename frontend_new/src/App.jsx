@@ -5,14 +5,13 @@ import ExplorePage from './pages/ExplorePage'
 import ResearchPage from './pages/ResearchPage'
 import AmendmentsPage from './pages/AmendmentsPage'
 import AlertsPage from './pages/AlertsPage'
-import ArchitecturePage from './pages/ArchitecturePage'
-import PlaygroundPage from './pages/PlaygroundPage'
-import SearchPage from './pages/SearchPage'
+import { UserProvider } from './context/UserContext'
 
 // App shell: main.jsx provides <BrowserRouter>. Layout mirrors the CRM SaaS
 // reference — floating sidebar + content column.
 export default function App() {
   return (
+    <UserProvider>
     <div style={{ minHeight: '100vh', background: 'var(--bg)', color: 'var(--text-1)' }}>
       <Sidebar />
       <div className="app-main">
@@ -23,9 +22,6 @@ export default function App() {
             <Route path="/research" element={<ResearchPage />} />
             <Route path="/amendments" element={<AmendmentsPage />} />
             <Route path="/alerts" element={<AlertsPage />} />
-            <Route path="/architecture" element={<ArchitecturePage />} />
-            <Route path="/playground" element={<PlaygroundPage />} />
-            <Route path="/search" element={<SearchPage />} />
             <Route
               path="*"
               element={
@@ -53,5 +49,6 @@ export default function App() {
         </footer>
       </div>
     </div>
+    </UserProvider>
   )
 }

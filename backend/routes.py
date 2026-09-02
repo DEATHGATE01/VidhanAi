@@ -469,14 +469,36 @@ def register_user():
             full_name=data.get('full_name'),
             app=current_app
         )
-        
+
         if 'error' in result:
             return jsonify(result), 400
-        
+
         return jsonify(result), 201
-    
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@api.route('/users/login', methods=['POST'])
+def login_user():
+    """
+    Sign in an existing user (demo-grade portal auth).
+
+    Body: email, password
+    Verifies the werkzeug password hash on the User row and returns the same
+    shape as /users/register on success, so the frontend stores one profile.
+    """
+    data = request.get_json(silent=True) or {}
+    email = (data.get('email') or '').strip()
+    password = data.get('password') or ''
+    if not email or not password:
+        return jsonify({'error': 'Email and password are required'}), 400
+
+    user = User.query.filter_by(email=email).first()
+    if not user or not user.check_password(password):
+        return jsonify({'error': 'Invalid email or password'}), 401
+
+    return jsonify({'success': True, 'user': user.to_dict()}), 200
 
 
 @api.route('/users/<int:user_id>', methods=['GET'])

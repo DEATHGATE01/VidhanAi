@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { ChevronLeft, ChevronRight, Download } from 'lucide-react'
-import { getAllBills } from '../services/api'
+import { getAllBills, searchBills } from '../services/api'
 import BillCard from '../components/BillCard'
 import AdvancedFilters from '../components/AdvancedFilters'
+import BillSummaryPanel from '../components/BillSummaryPanel'
 import Vid from '../components/Vid'
 
 // Explore all bills — GET /api/bills (page 1, 100 rows) with client-side
@@ -20,6 +21,33 @@ export default function ExplorePage() {
   const [selectedBills, setSelectedBills] = useState(new Set())
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const debounceRef = useRef(null)
+
+  // In-app bill summary overlay + AI (semantic) search mode.
+  const [selectedBill, setSelectedBill] = useState(null)
+  const [aiMode, setAiMode] = useState(false)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiError, setAiError] = useState('')
+  const [aiResults, setAiResults] = useState([])
+
+  // Debounced semantic search: only fires when AI search is on + a query typed.
+  useEffect(() => {
+    const q = searchKeyword.trim()
+    if (!aiMode || !q) { setAiResults([]); setAiError(''); setAiLoading(false); return undefined }
+    let cancelled = false
+    setAiLoading(true)
+    setAiError('')
+    const t = setTimeout(() => {
+      searchBills(q)
+        .then((data) => { if (!cancelled) setAiResults((data && data.results) || []) })
+        .catch((err) => {
+          if (cancelled) return
+          if (err?.response?.status === 403 && err?.response?.data?.is_guardrailed) setAiError(err.response.data.error || 'That query was blocked by the safety filter.')
+          else setAiError(err?.response?.data?.error || err?.message || 'AI search failed.')
+        })
+        .finally(() => { if (!cancelled) setAiLoading(false) })
+    }, 350)
+    return () => { cancelled = true; clearTimeout(t) }
+  }, [aiMode, searchKeyword])
 
   useEffect(() => {
     let cancelled = false
@@ -84,6 +112,9 @@ export default function ExplorePage() {
 
   // Derived filter/sort/pagination — no duplicated state.
   const kw = searchKeyword.trim().toLowerCase()
+  const kwTrim = searchKeyword.trim()
+  const aiActive = aiMode && kwTrim !== ''
+  const openBill = (b) => setSelectedBill(b)
   const filtered = bills
     .filter((b) =>
       !kw ||
@@ -128,6 +159,16 @@ export default function ExplorePage() {
             style={{ flex: 1, minWidth: 220, padding: '0.7rem 1rem', fontSize: '0.9rem' }}
             aria-label="Search bills by keyword"
           />
+          <button
+            type="button"
+            aria-pressed={aiMode}
+            onClick={() => setAiMode((m) => !m)}
+            title="Semantic search over the bill index by meaning"
+            className={aiMode ? 'btn btn-primary' : 'btn btn-secondary'}
+            style={{ padding: '0.5rem 1rem', fontSize: '0.82rem', whiteSpace: 'nowrap' }}
+          >
+            ✨ AI search
+          </button>
           <button
             type="button"
             onClick={() => setShowAdvancedFilters((s) => !s)}
@@ -189,6 +230,39 @@ export default function ExplorePage() {
         </div>
       </div>
 
+      {/* AI semantic matches (shown only when ✨ AI search is on with a query) */}
+      {aiActive && (
+        <section className="animate-fade-in" style={{ marginBottom: '1.25rem' }} aria-label="AI semantic matches">
+          <h2 style={{ fontSize: '1.05rem', fontWeight: 700, margin: '0 0 0.75rem' }}>✨ AI matches for “{kwTrim}”</h2>
+          {aiLoading ? (
+            <div style={{ textAlign: 'center', padding: '2.5rem' }}>
+              <span className="spinner-ring" style={{ width: 26, height: 26, borderWidth: 3 }} />
+              <p className="empty-state-text" style={{ marginTop: '0.75rem' }}>Searching the bill index by meaning…</p>
+            </div>
+          ) : aiError ? (
+            <p role="alert" style={{ color: 'var(--danger)', margin: 0 }}>⚠️ {aiError}</p>
+          ) : aiResults.length === 0 ? (
+            <p className="empty-state-text">No semantic matches. Try different words, or turn AI search off to browse.</p>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1rem' }}>
+              {aiResults.map((bill) => (
+                <BillCard
+                  key={bill.id}
+                  bill={bill}
+                  onViewDetails={() => openBill(bill)}
+                  onAddFavorite={() => {}}
+                  isSelected={selectedBills.has(bill.id)}
+                  onToggleSelect={() => toggleSelectBill(bill.id)}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Browse states + results (hidden while AI matches are shown) */}
+      {!aiActive && (
+        <>
       {/* States */}
       {loading && (
         <div style={{ textAlign: 'center', padding: '4rem' }}>
@@ -228,7 +302,7 @@ export default function ExplorePage() {
               <BillCard
                 key={bill.id}
                 bill={bill}
-                onViewDetails={() => { if (bill.url) window.open(bill.url, '_blank', 'noopener,noreferrer') }}
+                onViewDetails={() => openBill(bill)}
                 onAddFavorite={() => {}}
                 isSelected={selectedBills.has(bill.id)}
                 onToggleSelect={() => toggleSelectBill(bill.id)}
@@ -249,6 +323,12 @@ export default function ExplorePage() {
             </nav>
           )}
         </>
+      )}
+        </>
+      )}
+
+      {selectedBill && (
+        <BillSummaryPanel bill={selectedBill} onClose={() => setSelectedBill(null)} />
       )}
     </div>
   )

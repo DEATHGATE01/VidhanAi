@@ -1,23 +1,28 @@
 import { useState } from 'react'
 import { NavLink, Link } from 'react-router-dom'
-import { Menu, X, Scale, Brain, FileText, Settings, Zap, Bell, Search } from 'lucide-react'
+import { Menu, X, Scale, Brain, FileText, Bell, LogIn, LogOut } from 'lucide-react'
 import ThemeToggle from './ThemeToggle'
 import Vid from './Vid'
+import SignInModal from './SignInModal'
+import { useUser } from '../context/UserContext'
 
 // Floating sidebar — the signature element of the CRM SaaS reference design.
 // Desktop: fixed rounded card with margin. Mobile: slide-down panel.
+// Architecture / Playground / Search were folded into Explore (summaries +
+// semantic search live there now) and removed from the app.
 const NAV = [
   { id: 'research', label: 'Research', icon: Brain, description: 'Multi-agent legislative research' },
-  { id: 'explore', label: 'Explore', icon: FileText, description: 'Browse & search all bills' },
+  { id: 'explore', label: 'Explore', icon: FileText, description: 'Browse, search & read bill summaries' },
   { id: 'amendments', label: 'Amendments', icon: Scale, description: 'Delta-aware legislative diff' },
   { id: 'alerts', label: 'Alerts', icon: Bell, description: 'Email alerts for bills & topics' },
-  { id: 'architecture', label: 'Architecture', icon: Settings, description: 'Live system inventory' },
-  { id: 'playground', label: 'Playground', icon: Zap, description: 'Model comparison & testing' },
-  { id: 'search', label: 'Search', icon: Search, description: 'Semantic & keyword search' },
 ]
 
 export default function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [signInOpen, setSignInOpen] = useState(false)
+  const { user, signOut } = useUser()
+
+  const openSignIn = () => { setMobileOpen(false); setSignInOpen(true) }
 
   return (
     <>
@@ -56,6 +61,17 @@ export default function Sidebar() {
               <Icon size={17} /> {label}
             </NavLink>
           ))}
+          <div style={{ borderTop: '1px solid var(--border)', marginTop: '0.5rem', paddingTop: '0.5rem' }}>
+            {user ? (
+              <button type="button" onClick={() => { setMobileOpen(false); signOut() }} className="sidebar-link" style={{ width: '100%', alignItems: 'center' }}>
+                <LogOut size={17} /> Sign out {user.email}
+              </button>
+            ) : (
+              <button type="button" onClick={openSignIn} className="sidebar-link" style={{ width: '100%', alignItems: 'center' }}>
+                <LogIn size={17} /> Sign in / Sign up
+              </button>
+            )}
+          </div>
         </nav>
       )}
 
@@ -82,7 +98,29 @@ export default function Sidebar() {
           ))}
         </nav>
 
-        <div className="px-2 pt-3 text-xs" style={{ borderTop: '1px solid var(--border)' }}>
+        <div className="px-2 pt-3 text-xs" style={{ borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+          {user ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span className="icon-chip icon-green" style={{ width: 28, height: 28, flex: '0 0 auto' }}>
+                {(user.username || user.email || '?').slice(0, 1).toUpperCase()}
+              </span>
+              <div style={{ minWidth: 0, lineHeight: 1.25 }}>
+                <p style={{ margin: 0, color: 'var(--text-1)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {user.username || 'Guest'}
+                </p>
+                <p style={{ margin: 0, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {user.email}
+                </p>
+              </div>
+              <button type="button" onClick={signOut} className="btn btn-ghost p-1" style={{ marginLeft: 'auto', flex: '0 0 auto' }} title="Sign out" aria-label="Sign out">
+                <LogOut size={14} />
+              </button>
+            </div>
+          ) : (
+            <button type="button" onClick={openSignIn} className="btn btn-secondary" style={{ padding: '0.45rem 0.7rem', fontSize: '0.8rem' }}>
+              <LogIn size={14} /> Sign in / Sign up
+            </button>
+          )}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
             <p style={{ color: 'var(--text-3)', margin: 0 }}>
               PRS India data · free-tier stack
@@ -91,6 +129,8 @@ export default function Sidebar() {
           </div>
         </div>
       </aside>
+
+      <SignInModal open={signInOpen} onClose={() => setSignInOpen(false)} />
     </>
   )
 }

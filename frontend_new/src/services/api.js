@@ -63,6 +63,11 @@ export const registerUser = async (userData) => {
   return response.data
 }
 
+export const loginUser = async ({ email, password }) => {
+  const response = await api.post('/users/login', { email, password })
+  return response.data
+}
+
 export const getUserById = async (userId) => {
   const response = await api.get(`/users/${userId}`)
   return response.data
@@ -134,11 +139,6 @@ export const runAgentResearch = async (question, maxSteps = 6, useLlmPlanner = f
     max_steps: maxSteps,
     use_llm_planner: useLlmPlanner,
   })
-  return response.data
-}
-
-export const getArchitecture = async () => {
-  const response = await api.get('/architecture')
   return response.data
 }
 

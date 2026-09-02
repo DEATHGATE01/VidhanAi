@@ -56,20 +56,25 @@ export default function BillCard({ bill, onViewDetails, onAddFavorite, isSelecte
         </button>
       </div>
 
-      {/* Title */}
+      {/* Title — opens the in-app summary panel */}
       <h3 style={{ fontSize: '1rem', fontWeight: 600, lineHeight: 1.45, margin: 0 }}>
-        {bill.url ? (
-          <a
-            href={bill.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:text-vidhan-300 transition-colors"
-          >
-            {bill.title}
-          </a>
-        ) : (
-          bill.title
-        )}
+        <button
+          type="button"
+          onClick={onViewDetails}
+          title={`Open summary for ${bill.title}`}
+          className="hover:text-vidhan-300 transition-colors"
+          style={{
+            padding: 0,
+            border: 0,
+            background: 'none',
+            color: 'inherit',
+            cursor: 'pointer',
+            font: 'inherit',
+            textAlign: 'left',
+          }}
+        >
+          {bill.title}
+        </button>
       </h3>
 
       {/* Ministry */}

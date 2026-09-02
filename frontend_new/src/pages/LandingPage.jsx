@@ -6,7 +6,7 @@ const FEATURES = [
   { icon: '🤖', chip: 'icon-purple', title: 'Multi-Agent Research', description: 'CrewAI orchestrator dispatches 7 specialist tools — bill lookup, semantic search, summarizer, fact-checker, amendment diff, citations.', path: '/research' },
   { icon: '⚖️', chip: 'icon-green', title: 'Amendment Diff', description: 'Delta-aware summarization — the novel research contribution. See exactly what changed between any two versions of a bill.', path: '/amendments' },
   { icon: '🔔', chip: 'icon-blue', title: 'Smart Alerts', description: 'Track a bill or follow a topic. Welcome email with the AI summary, then alerts when bills appear or change.', path: '/alerts' },
-  { icon: '🔬', chip: 'icon-amber', title: 'Model Playground', description: 'Generate bill summaries and audit exactly which model produced them — every result carries its model_version.', path: '/playground' },
+  { icon: '📄', chip: 'icon-amber', title: 'Plain-English Summaries', description: 'Open any bill in Explore for an AI plain-English summary with its model stamp, and subscribe for alerts on it right from the page.', path: '/explore' },
 ]
 
 const STATS = [
