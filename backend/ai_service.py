@@ -142,13 +142,15 @@ USE_LOCAL_LORA = os.environ.get("VIDHANAI_USE_LORA", "0") == "1"
 USE_OLLAMA = os.environ.get("VIDHANAI_USE_OLLAMA", "0") == "1"
 OLLAMA_URL = os.environ.get("VIDHANAI_OLLAMA_URL", "http://127.0.0.1:11434/v1")
 OLLAMA_MODEL = os.environ.get("VIDHANAI_OLLAMA_MODEL", "vidhanai")
-# Cap output length: a 3B model on CPU generates ~15-40 s per 384 tokens, so
-# keep the demo responsive. Raise only if summaries feel truncated.
+# Cap output length. The 3B on this CPU generates ~8 tokens/s, so a full
+# summary (up to ~900 tokens) takes a couple of minutes per bill; summaries are
+# DB-cached, so pre-warm the demo bills once. Lower this only if you accept
+# cut-off summaries for faster live generation.
 def _ollama_max_tokens() -> int:
     try:
-        return max(64, int(os.environ.get("VIDHANAI_OLLAMA_MAX_TOKENS", "384")))
+        return max(64, int(os.environ.get("VIDHANAI_OLLAMA_MAX_TOKENS", "900")))
     except (TypeError, ValueError):  # pragma: no cover - bad env value
-        return 384
+        return 900
 
 
 OLLAMA_MAX_TOKENS = _ollama_max_tokens()
@@ -308,25 +310,6 @@ def generate_ollama_summary(text: str) -> Optional[str]:
     except Exception as exc:  # pragma: no cover - network/local server
         logger.warning("Ollama call failed (%s): %s", OLLAMA_URL, exc)
         return None
-
-
-def _generate_text_with_backends(text: str) -> Optional[str]:
-    """Run ``text`` through the enabled generative backends in priority order.
-
-    Order: Ollama fine-tuned model (local demo) → local LoRA → Groq. Each
-    backend is only consulted when configured/enabled, so a fine-tuned summary
-    never silently triggers a Groq call (e.g. for TL;DR extraction). Returns the
-    first non-empty generation or ``None``.
-    """
-    if USE_OLLAMA:
-        out = generate_ollama_summary(text)
-        if out:
-            return out
-    if USE_LOCAL_LORA:
-        out = generate_lora_summary(text)
-        if out:
-            return out
-    return generate_groq_summary(text)
 
 
 # ---------------------------------------------------------------------------
@@ -550,28 +533,12 @@ def generate_bill_summary(bill_data: dict, content_data: dict) -> dict:
                     confidence = 0.88
                 break
 
-    # Extract TL;DR from generative summaries (first 3 bullets if present, else generate)
-    tldr = ""
-    if summary_text and "## TL;DR" in summary_text:
-        # Extract existing TL;DR section
-        tldr_start = summary_text.find("## TL;DR")
-        tldr_end = summary_text.find("\n###", tldr_start)
-        if tldr_end == -1:
-            tldr_end = len(summary_text)
-        tldr = summary_text[tldr_start:tldr_end].strip()
-    elif summary_text and summary_type == "generative":
-        # Generate TL;DR using the same enabled generative backends that made
-        # the summary (Ollama → local LoRA → Groq), so a fine-tuned summary
-        # never silently triggers a Groq call here.
-        tldr_result = _generate_text_with_backends(
-            f"{TLDR_EXTRACT_PROMPT}\n\n{summary_text[:8000]}"
-        )
-        if tldr_result:
-            tldr = "## TL;DR\n" + "\n".join(f"• {line.strip()}" for line in tldr_result.strip().split("\n") if line.strip())
-
-    # Prepend TL;DR to summary if we have one
-    if tldr:
-        summary_text = f"{header}\n\n{tldr}\n\n### AI Generative Summary\n{result}" if summary_type == "generative" else f"{header}\n\n{tldr}\n\n### Extractive Summary\n{summary_text[len(header):].strip()}"
+    # The generative model output already leads with a '## TL;DR' section (see
+    # EXPERT_SYSTEM_PROMPT) and contains the full body, so no separate TL;DR
+    # extraction/reassembly happens here — earlier code that re-sliced from
+    # '## TL;DR' to the next '###' marker swallowed the WHOLE document (models
+    # use '##' section headings, so no terminator matched) and then re-appended
+    # it, producing a duplicated, confusing summary.
 
     if not summary_text:
         # Last-resort: rule-based extractive summary.
