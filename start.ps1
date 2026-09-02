@@ -76,14 +76,19 @@ if (Test-Port 5173) {
 }
 
 # ── Launch Flask backend ─────────────────────────────────────────
-Print-Info "Starting Flask backend on http://localhost:5000..."
+# Runs on the locally fine-tuned Llama-3.2-3B via Ollama
+# (VIDHANAI_USE_OLLAMA=1). Groq stays in the chain as a fallback when Ollama
+# isn't running; to force fine-tuned-only, unset GROQ_API_KEY too.
+Print-Info "Starting Flask backend on http://localhost:5000 (Ollama fine-tuned model)..."
 
+$env:VIDHANAI_USE_OLLAMA = "1"
 $backendJob = Start-Process `
     -FilePath "python" `
     -ArgumentList "app.py" `
     -WorkingDirectory $Backend `
     -PassThru `
-    -WindowStyle Normal `
+    -WindowStyle Normal
+Remove-Item Env:VIDHANAI_USE_OLLAMA -ErrorAction SilentlyContinue
 
 Print-Ok "Flask started  (PID $($backendJob.Id))"
 

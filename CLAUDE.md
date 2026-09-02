@@ -332,6 +332,9 @@ can't run there; the working route is a **Q4 GGUF on CPU via Ollama**.
 - `notebooks/roundtrip_lora.py`: added `--bundle-adapter` (zips
   `notebooks/lora_model/` for Kaggle Dataset upload).
 - `backend/Modelfile.ollama` (NEW): registers the GGUF as Ollama model `vidhanai`.
+- `start.bat` / `start.ps1`: the backend window now sets `VIDHANAI_USE_OLLAMA=1`
+  (fine-tuned model via Ollama); Groq stays in the chain as fallback if Ollama
+  isn't running.
 - Verified: `py_compile` clean on all changed files; with `VIDHANAI_USE_OLLAMA=1`
   and Ollama unreachable, summaries degrade to `rule_based_extractive_v1` with no
   Groq key and no hidden Groq call.

@@ -49,8 +49,11 @@ if not exist "%FRONTEND%\node_modules" (
 )
 
 :: ── Launch backend in a new window ─────────────────────────────
-echo  [1/2] Starting Flask backend on http://localhost:5000
-start "VidhanAI Backend :5000" cmd /k "cd /d "%BACKEND%" && python app.py"
+:: Runs on the locally fine-tuned Llama-3.2-3B via Ollama (VIDHANAI_USE_OLLAMA=1).
+:: Groq stays in the chain as a fallback when Ollama isn't running; to force
+:: fine-tuned-only, also run:  set GROQ_API_KEY=
+echo  [1/2] Starting Flask backend on http://localhost:5000 (Ollama fine-tuned model)
+start "VidhanAI Backend :5000" cmd /k "cd /d "%BACKEND%" && set VIDHANAI_USE_OLLAMA=1 && python app.py"
 
 :: Small pause so Flask can bind the port before Vite tries to proxy
 timeout /t 3 /nobreak >nul
