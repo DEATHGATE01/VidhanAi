@@ -96,7 +96,7 @@ def main() -> int:
             for spec in args.bill_specs:
                 bill = None
                 try:
-                    bill = Bill.query.get(int(spec))
+                    bill = db.session.get(Bill, int(spec))
                 except (ValueError, TypeError):
                     pass
                 if bill is None:

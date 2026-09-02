@@ -100,6 +100,9 @@ notebooks/lora_model/*.safetensors
 notebooks/lora_model/*.bin
 notebooks/**/*.zip
 
+# Large root-level Kaggle download (GGUF-export output; extract the .gguf, don't commit)
+/results.zip
+
 # Ruff linter cache
 .ruff_cache/
 
