@@ -228,6 +228,16 @@ clicked through against a live backend in Chrome):
   **Ollama backend** so the app can generate summaries with the QLoRA fine-tuned
   Llama-3.2-3B (served on the laptop's CPU) instead of Groq — see Phase E in §6
   for the env vars, new scripts, and the remaining manual (Kaggle/Ollama) steps.
+- Frontend consolidation (2026-09-03): nav now only Research · Explore ·
+  Amendments · Alerts. Architecture/Playground/Search pages were deleted; their
+  features moved into Explore. Bill cards open an in-app summary panel
+  (BillSummaryPanel, markdown-rendered via react-markdown, model/guardrail chips,
+  "Get alerts for this bill" subscribe) instead of the PRS link. Explore gained an
+  "✨ AI search" toggle (/semantic-search). Portal sign-up/sign-in added:
+  backend `/api/users/login`, frontend UserContext + SignInModal (session in
+  localStorage `vidhanai-user`); alert emails come from the profile. Older §5
+  prose below still lists the removed routes/pages — treat this bullet and §6 as
+  authoritative.
 
 Known non-frontend items discovered during verification:
 1. **ChromaDB collection `legal_bills` does not exist** → semantic search always
