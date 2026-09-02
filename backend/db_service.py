@@ -12,6 +12,7 @@ sys.path.insert(0, project_root)
 from models import db, Bill, BillContent, SearchHistory, User, UserFavorite, UserReadingHistory, BillVersion, BillSummary
 from datetime import datetime
 from sqlalchemy import or_
+from sqlalchemy.exc import IntegrityError
 # Import API-based AI service (Groq with custom prompt)
 from ai_service import generate_bill_summary, generate_quick_summary
 # Import the original working scraper
@@ -1380,7 +1381,28 @@ def get_or_generate_bill_summary(bill_id, app):
             guardrail_version='v1.0',
         )
         db.session.add(bill_summary)
-        db.session.commit()
+        # Two requests can race to generate the same bill (e.g. the regenerate
+        # script and the live server, or a double-click): both see no cached
+        # row, both generate (slow on CPU), and the loser's INSERT violates the
+        # UNIQUE(bill_id) constraint. On conflict, keep the winner's row.
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            existing = BillSummary.query.filter_by(bill_id=bill.id).first()
+            if existing is not None:
+                print("[race] another request generated this summary first; using its row "
+                      f"(model_version={existing.model_version})")
+                return {
+                    'summary': existing.summary,
+                    'summary_type': existing.summary_type,
+                    'model_version': existing.model_version,
+                    'guardrail_applied': existing.guardrail_applied,
+                    'generated_at': existing.generated_at.isoformat() if existing.generated_at else None,
+                    'confidence': existing.confidence,
+                    'source': 'database',
+                }
+            raise  # pragma: no cover - genuine error, not a race
 
         print(f"Summary saved to database (model_version={bill_summary.model_version})")
 
