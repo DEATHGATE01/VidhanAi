@@ -173,5 +173,13 @@ app = create_app()
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     debug = os.environ.get("FLASK_ENV") == "development"
-    print(f"[app] Starting VidhanAI on http://127.0.0.1:{port} (debug={debug})")
-    app.run(host="0.0.0.0", port=port, debug=debug)
+    # The dev auto-reloader restarts the worker on any .py change; a restart
+    # landing mid-request kills the socket and the Vite proxy reports 502 on
+    # /agent/research. Keep debug tracebacks but default the reloader OFF so
+    # requests survive; opt back in with VIDHANAI_USE_RELOADER=1 while editing.
+    use_reloader = os.environ.get("VIDHANAI_USE_RELOADER", "0") == "1"
+    print(
+        f"[app] Starting VidhanAI on http://127.0.0.1:{port} "
+        f"(debug={debug}, reloader={use_reloader})"
+    )
+    app.run(host="0.0.0.0", port=port, debug=debug, use_reloader=use_reloader)

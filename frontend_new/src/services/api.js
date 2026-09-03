@@ -133,14 +133,37 @@ export const getSystemStats = async () => {
 // MULTI-AGENT ORCHESTRATION (Phase 3)
 // ============================================================================
 
-export const runAgentResearch = async (question, maxSteps = 6, useLlmPlanner = false) => {
-  const response = await api.post('/agent/research', {
-    question,
-    max_steps: maxSteps,
-    use_llm_planner: useLlmPlanner,
-  })
-  return response.data
+// /agent/research is the slowest endpoint: the first call lazily imports the
+// agent stack (~60s) and the Flask dev server can restart mid-request, which
+// the Vite proxy surfaces as a 502 even though the backend is healthy. Retry
+// transient failures (no response, or HTTP >= 500) with a short backoff so the
+// well-known "retry succeeds" case never reaches the user as a dead-end error.
+const researchRetry = async (request) => {
+  const MAX_ATTEMPTS = 3
+  let lastErr = null
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await request()
+      return response.data
+    } catch (err) {
+      const status = err?.response?.status
+      lastErr = err
+      // Retry only network/proxy failures and 5xx — never 4xx (e.g. 413/400).
+      if ((status && status < 500) || attempt === MAX_ATTEMPTS) break
+      await new Promise((resolve) => setTimeout(resolve, 400 * attempt))
+    }
+  }
+  throw lastErr
 }
+
+export const runAgentResearch = async (question, maxSteps = 6, useLlmPlanner = false) =>
+  researchRetry(() =>
+    api.post('/agent/research', {
+      question,
+      max_steps: maxSteps,
+      use_llm_planner: useLlmPlanner,
+    }),
+  )
 
 // ============================================================================
 // AMENDMENT DIFF (Phase 3 — delta-aware summarization)

@@ -23,7 +23,9 @@ Core claims (from the research paper):
 **Stack:** Python/Flask backend · SQLite (11 tables) · ChromaDB · React 19 + Vite +
 Tailwind CSS 4 frontend · Groq LLM API (`groq/compound`) · n8n workflows for alerts.
 
-**Not a git repository.** There is no version history. Be careful with destructive edits.
+**Git repo (branch `main`).** History lives on GitHub `DEATHGATE01/VidhanAi`
+(HTTPS, see §7.6). Some prose below predates `git init` and still says "no git"
+— treat §5/§6 as authoritative. Be careful with destructive edits.
 
 ---
 
@@ -222,8 +224,12 @@ clicked through against a live backend in Chrome):
   --chat-input-bg/--shadow-sm` in both themes. `.ask-page` sizes the workspace
   (min-height `min(880px, calc(100dvh - 9.5rem))`, mobile override). `npm run build`
   passes; verified in Chrome (both themes; idle→processing→result; no console errors).
-  NOTE: `/agent/research` intermittently 502s even with Flask up — the known
-  dev-reloader flakiness; retry usually succeeds.
+  RESOLVED (2026-09-03): the intermittent `/agent/research` 502s were the Flask dev
+  auto-reloader (debug=True from `backend/.env`) restarting the worker mid-request
+  on the slow first call — the Vite proxy then answered 502. `app.py` now boots with
+  `use_reloader` default OFF (`VIDHANAI_USE_RELOADER=1` re-enables for active backend
+  editing) and the frontend retries transient network/≥500 once. See "Ask VidhanAI
+  reliability" bullet below.
 - Local fine-tuned model serving (2026-09-02): `backend/ai_service.py` gained an
   **Ollama backend** so the app can generate summaries with the QLoRA fine-tuned
   Llama-3.2-3B (served on the laptop's CPU) instead of Groq — see Phase E in §6
@@ -238,16 +244,35 @@ clicked through against a live backend in Chrome):
   localStorage `vidhanai-user`); alert emails come from the profile. Older §5
   prose below still lists the removed routes/pages — treat this bullet and §6 as
   authoritative.
+- Ask VidhanAI reliability (2026-09-03): two root causes fixed and verified live.
+  (a) **502s** — the dev auto-reloader (debug=True from `backend/.env`) restarted the
+  Flask worker mid-request on the slow first `/agent/research`, so the Vite proxy
+  answered 502. `backend/app.py` now defaults `use_reloader=False`
+  (`VIDHANAI_USE_RELOADER=1` opts back in for backend editing); boot verified as a
+  single process. `frontend_new/src/services/api.js` `runAgentResearch` now retries
+  transient network/≥500 (up to 3 attempts) so a residual restart never surfaces as
+  a dead-end error. (b) **Retrieval** — `backend/db_service.py::search_bills`
+  matched the whole natural-language sentence as one ILIKE phrase, so
+  "What is the Digital Personal Data Protection Bill 2023 about?" hit **zero**
+  titles, tripped the full-PRS scrape on every miss, and the rule-based planner
+  answered "could not find a bill". Rewrote the ~940-line duplicated function
+  (~150 lines): queries are tokenized into meaningful terms (stopwords stripped)
+  and OR-matched across title/ministry/status; content search and the scrape
+  backfill still run, only when needed. Verified the DPDP question now returns
+  **"The Digital Personal Data Protection Bill, 2023"** (Passed) + PRS URL + a
+  grounded summary, with no scrape, HTTP 200. NOTE: the DB holds **140** bills, not
+  958+ (KPI cards are static marketing). First research call is still slow
+  (~60–75 s = lazy CrewAI import + one LLM summary under the Phase-E Ollama/Groq
+  chain) — pre-warm demo questions; later calls ~7 s when the summary is cached.
 
 Known non-frontend items discovered during verification:
 1. **ChromaDB collection `legal_bills` does not exist** → semantic search always
    returns 0 results. Fix: run `backend/scripts/ml_pipeline/2_vectorize_docs.py`.
-2. **Deterministic planner's `bill_lookup` keyword matching is weak** — natural
-   questions like "What is X Bill 2023 about?" often miss; simple keywords work.
-   Backend tuning item.
-3. **First research request after backend boot can take ~60s+** (one-time PRS list
-   fetch) and Flask dev-server watchdog reloads mid-request can yield proxy 502s.
-   Subsequent requests are ~7s.
+2. ✅ RESOLVED (2026-09-03) — natural-language lookup: `search_bills` tokenizes
+   the question into terms (see §5 "Ask VidhanAI reliability").
+3. ✅ RESOLVED (2026-09-03) — reloader 502s on first research call: auto-reloader is
+   off by default so no mid-request restart; the first call still takes ~60–75 s
+   (lazy CrewAI import + LLM summary) but no longer dies and returns HTTP 200.
 
 ---
 
