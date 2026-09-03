@@ -264,6 +264,17 @@ clicked through against a live backend in Chrome):
   958+ (KPI cards are static marketing). First research call is still slow
   (~60–75 s = lazy CrewAI import + one LLM summary under the Phase-E Ollama/Groq
   chain) — pre-warm demo questions; later calls ~7 s when the summary is cached.
+- Demo tunnel (2026-09-03): `demo-tunnel.ps1` (repo root) starts the stack for a
+  public URL while Ollama + n8n stay on the laptop: backend on :5000 with
+  `FLASK_ENV=production` (**debug OFF — the Werkzeug interactive debugger is an
+  RCE if exposed**) + `VIDHANAI_USE_OLLAMA=1`, Vite dev on :5173, then a
+  Cloudflare quick tunnel (`cloudflared tunnel --url http://127.0.0.1:5173`,
+  no account, clean visitor page, random URL each run). Single tunnel to Vite —
+  its `/api` proxy reaches Flask on localhost, so no CORS split. Vite config
+  needed `host: true` (bind 0.0.0.0) and `allowedHosts: true` (Vite 6+ 403s any
+  non-localhost Host header otherwise). cloudflared logs to **stderr**, not
+  stdout — the launcher greps both. Ollama `vidhanai:latest` is installed and
+  running on the laptop.
 
 Known non-frontend items discovered during verification:
 1. **ChromaDB collection `legal_bills` does not exist** → semantic search always
