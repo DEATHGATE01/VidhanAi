@@ -63,6 +63,9 @@ anything else in the repo. Keep it up to date as the project evolves.
 - Use Conventional Commits: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`,
   `chore:`.
 - Small, atomic commits. One logical change per commit.
+- Give every non-trivial commit a short body: what changed, why, and anything
+  the next reader needs.
+- Stage files intentionally (`git add <paths>`); never blind `git add -A`.
 - Never commit secrets, API keys, `.env` files, or credentials. Add them to
   `.gitignore` immediately if they appear.
 - Never commit model weights, fabricated results, or files >50 MB (GitHub
@@ -85,9 +88,6 @@ anything else in the repo. Keep it up to date as the project evolves.
 - Write a `README.md` that lets a stranger clone, install, and run the
   project in under 5 minutes.
 - Run tests/linters before committing; don't commit code that fails CI.
-- Commit at every phase boundary (resume-grade history): one conventional
-  commit per completed phase, staged by subsystem (`git add <paths>`, never
-  blind `git add -A`), pushed to origin immediately after.
 
 ---
 

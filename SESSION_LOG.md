@@ -25,6 +25,10 @@ Instructions" instruction set; create `TASKS.md` and `SESSION_LOG.md`.
 - Filled in the new CLAUDE.md §1 snapshot (VidhanAI purpose/stack/URL/owner)
   and §7 coding standards (oxlint frontend, build/py_compile verification,
   run commands, error-envelope convention) from verified repo state — T1 done.
+- Revised the CLAUDE.md git-commit policy to standard best practice: small
+  atomic commits (one logical change each) with an explanatory body and
+  intentional staging. The carried-over "one commit per phase" rule was
+  removed — it contradicted atomic commits.
 
 **Unresolved / next session should know:**
 - The old CLAUDE.md contained project-specific truth the new template does NOT:
