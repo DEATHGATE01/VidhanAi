@@ -271,16 +271,28 @@ def get_bill(bill_id):
                 .order_by(_LifecycleEvent.event_date.asc().nullsfirst()) \
                 .all()
             if events:
+                # Both key spellings are emitted deliberately. The same events
+                # are returned by GET /api/bills/<id>/lifecycle as
+                # event_date/event_type/house, while this payload historically
+                # used date/event -- a component written against one shape
+                # silently rendered undated rows on the other (TASKS.md A4).
+                # Aliasing here makes either shape work instead of relying on
+                # every caller remembering which endpoint it came from.
                 response_data['timeline'] = {
                     "events": [{
                         "date": ev.event_date.isoformat() if ev.event_date else None,
                         "event": ev.event_type,
+                        "event_date": ev.event_date.isoformat() if ev.event_date else None,
+                        "event_type": ev.event_type,
+                        "house": ev.house,
                         "title": _lifecycle_event_title(ev),
                         "notes": ev.notes,
                         "source": "PRS India" if ev.source == 'prs_billtrack' else (ev.source or ''),
                         "source_url": ev.source_url,
                         "is_estimated": bool(ev.is_estimated),
-                    } for ev in events]
+                    } for ev in events],
+                    "all_sourced": all(not bool(ev.is_estimated) for ev in events),
+                    "event_count": len(events),
                 }
         except Exception as e:
             print(f"[Timeline] Error: {e}")
@@ -594,6 +606,12 @@ def get_bill_lifecycle(bill_id):
             events.append({
                 'event_type': ev.event_type,
                 'event_date': ev.event_date.isoformat() if ev.event_date else None,
+                # Aliases: the same events reach the UI through
+                # /api/bills/<id> as date/event (see TASKS.md A4), so both
+                # spellings are provided and a component cannot silently render
+                # undated rows depending on which endpoint it was handed.
+                'date': ev.event_date.isoformat() if ev.event_date else None,
+                'event': ev.event_type,
                 'house': ev.house,
                 'source': ev.source,
                 'source_url': ev.source_url,
