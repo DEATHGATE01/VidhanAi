@@ -21,6 +21,7 @@ export default function ExplorePage() {
   const [selectedBills, setSelectedBills] = useState(new Set())
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const debounceRef = useRef(null)
+  const [actsByBill, setActsByBill] = useState({})
 
   // In-app bill summary overlay + AI (semantic) search mode.
   const [selectedBill, setSelectedBill] = useState(null)
@@ -53,7 +54,10 @@ export default function ExplorePage() {
     let cancelled = false
     getAllBills(1, 100)
       .then((response) => {
-        if (!cancelled && response.success) setBills(response.bills || [])
+        if (!cancelled && response.success) {
+          setBills(response.bills || [])
+          setActsByBill(response.acts_by_bill || {})
+        }
         else if (!cancelled) setError('Failed to load bills')
       })
       .catch((err) => { if (!cancelled) setError(err?.message || 'Failed to load bills') })
@@ -253,6 +257,7 @@ export default function ExplorePage() {
                   onAddFavorite={() => {}}
                   isSelected={selectedBills.has(bill.id)}
                   onToggleSelect={() => toggleSelectBill(bill.id)}
+                  enactedAct={actsByBill[bill.id]}
                 />
               ))}
             </div>
@@ -306,6 +311,7 @@ export default function ExplorePage() {
                 onAddFavorite={() => {}}
                 isSelected={selectedBills.has(bill.id)}
                 onToggleSelect={() => toggleSelectBill(bill.id)}
+                enactedAct={actsByBill[bill.id]}
               />
             ))}
           </div>

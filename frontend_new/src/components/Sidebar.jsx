@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { NavLink, Link } from 'react-router-dom'
-import { Menu, X, Scale, Brain, FileText, Bell, LogIn, LogOut } from 'lucide-react'
+import { Menu, X, Scale, Brain, FileText, Bell, LogIn, LogOut, Gavel } from 'lucide-react'
 import ThemeToggle from './ThemeToggle'
 import Vid from './Vid'
 import SignInModal from './SignInModal'
@@ -13,6 +13,7 @@ import { useUser } from '../context/UserContext'
 const NAV = [
   { id: 'research', label: 'Research', icon: Brain, description: 'Multi-agent legislative research' },
   { id: 'explore', label: 'Explore', icon: FileText, description: 'Browse, search & read bill summaries' },
+  { id: 'acts', label: 'Acts', icon: Gavel, description: 'Acts as law — sourced Bill→Act lifecycle' },
   { id: 'amendments', label: 'Amendments', icon: Scale, description: 'Delta-aware legislative diff' },
   { id: 'alerts', label: 'Alerts', icon: Bell, description: 'Email alerts for bills & topics' },
 ]

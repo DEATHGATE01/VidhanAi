@@ -5,6 +5,8 @@ import ExplorePage from './pages/ExplorePage'
 import ResearchPage from './pages/ResearchPage'
 import AmendmentsPage from './pages/AmendmentsPage'
 import AlertsPage from './pages/AlertsPage'
+import ActsPage from './pages/ActsPage'
+import ActDetailPage from './pages/ActDetailPage'
 import { UserProvider } from './context/UserContext'
 
 // App shell: main.jsx provides <BrowserRouter>. Layout mirrors the CRM SaaS
@@ -22,6 +24,8 @@ export default function App() {
             <Route path="/research" element={<ResearchPage />} />
             <Route path="/amendments" element={<AmendmentsPage />} />
             <Route path="/alerts" element={<AlertsPage />} />
+            <Route path="/acts" element={<ActsPage />} />
+            <Route path="/acts/:actId" element={<ActDetailPage />} />
             <Route
               path="*"
               element={

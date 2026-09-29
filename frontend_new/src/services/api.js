@@ -207,4 +207,28 @@ export const getBillNews = async (billId, limit = 5) => {
   return response.data
 }
 
+// ============================================================================
+// ACTS & BILL → ACT LIFECYCLE (Acts as first-class objects; an Act is the law)
+// ============================================================================
+
+export const getActs = async (params = {}) => {
+  const response = await api.get('/acts', { params })
+  return response.data
+}
+
+export const getActById = async (actId) => {
+  const response = await api.get(`/acts/${actId}`)
+  return response.data
+}
+
+export const getBillLifecycle = async (billId) => {
+  const response = await api.get(`/bills/${billId}/lifecycle`)
+  return response.data
+}
+
+export const syncActs = async (limit = 50) => {
+  const response = await api.post('/admin/sync-acts', null, { params: { limit } })
+  return response.data
+}
+
 export default api

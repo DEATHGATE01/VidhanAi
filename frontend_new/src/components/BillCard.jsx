@@ -1,9 +1,11 @@
-import { ExternalLink, Heart } from 'lucide-react'
+import { ExternalLink, Heart, Gavel } from 'lucide-react'
+import { Link } from 'react-router-dom'
 
 // Card for a single bill in Explore grid/list views.
 // bill shape (from /api/bills): { id, title, ministry, status,
 //   introduction_date, url, ... }
-export default function BillCard({ bill, onViewDetails, onAddFavorite, isSelected, onToggleSelect }) {
+// enactedAct optional prop: {act_id, title, year, verified}
+export default function BillCard({ bill, onViewDetails, onAddFavorite, isSelected, onToggleSelect, enactedAct }) {
   const dateLabel = bill.introduction_date
     ? new Date(bill.introduction_date).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' })
     : null
@@ -80,6 +82,24 @@ export default function BillCard({ bill, onViewDetails, onAddFavorite, isSelecte
       {/* Ministry */}
       {bill.ministry && (
         <p style={{ margin: 0, color: 'var(--text-2)', fontSize: '0.8rem' }}>🏛️ {bill.ministry}</p>
+      )}
+
+      {/* Enacted as chip - only when verified link exists */}
+      {enactedAct && enactedAct.verified && (
+        <Link
+          to={`/acts/${enactedAct.act_id}`}
+          title="Verified link to the Act this Bill became"
+          style={{
+            fontSize: '0.72rem',
+            alignSelf: 'flex-start',
+            textDecoration: 'none',
+            color: 'inherit',
+          }}
+        >
+          <span className="badge badge-emerald" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.72rem' }}>
+            <Gavel size={12} /> Enacted as: {enactedAct.title}
+          </span>
+        </Link>
       )}
 
       {/* Actions */}
