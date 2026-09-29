@@ -47,6 +47,21 @@ genuinely three tool calls' worth of work (then say why in the report). Practica
   Depth-2 fan-out is the exception, not the default.
 
 DO:
+- **Pace for a slow endpoint: each model call takes 1–2 minutes.** Measured on this host
+  (nvidia + glm-5.3-flash: 64s for a two-token reply), which means a 2-hour pass buys only
+  about 40–60 tool calls. Three earlier passes spent their entire cap that way and were killed
+  mid-file with nothing committed. So: pick the smallest coherent unit that produces something
+  verifiable, do it, verify it, commit it — then decide whether the clock allows another unit.
+  Do not open a second workstream while the first is uncommitted.
+- **Commit early, commit often — a pass that ends with nothing committed is a failed
+  pass.** The launcher kills this process at a hard wall-clock cap, and there is no warning.
+  Observed on 2026-09-29: three consecutive passes (42/43/40 tool calls, ~115 of 120 minutes
+  each) were killed mid-file and left six hours of work uncommitted — one `checkout` from
+  oblivion. So: after every coherent unit of work (one file done, one script working, one
+  endpoint verified) stage those explicit paths and commit immediately with a Conventional
+  Commit message. Never carry uncommitted work across a phase. If you must stop with work
+  half-done, commit it as WIP with a message that says what is unfinished — do not leave it in
+  the working copy for a `checkout` to destroy.
 - Gather real context first: read the files you will change, and fetch the actual PRS pages
   (curl with a browser User-Agent) rather than trusting a selector description. The plan's
   recon is from a real fetch — if reality now differs, believe reality and record the drift.
@@ -76,3 +91,40 @@ FINISH (every pass, no exceptions):
 - If §10 criteria 1–7 are all green with pasted evidence and the closing reflection is written:
   run `touch .cto-stop` and say so in the report. Otherwise end the pass normally — the
   launcher runs the next one.
+
+---
+
+## SUPERVISOR HANDOFF — 2026-09-30 01:20 (read before your pass)
+
+The parent session fixed two live defects **outside** your acts charter. They are
+done, verified, and committed (`83ee403`, plus the timeline alias commit) — do
+**not** redo them, and do not "improve" them without evidence:
+
+1. **Groq summaries now really work.** `generate_groq_summary` calls Groq's REST
+   API over HTTPS with a browser User-Agent (the venv has no `groq` SDK, and
+   Groq's Cloudflare edge 403s non-browser clients), model
+   `openai/gpt-oss-120b`, 429s absorbed via `Retry-After`. Backend order is
+   Groq → local Ollama → local LoRA → extractive. Verified:
+   `GET /api/bills/10/summary` → `groq_openai/gpt-oss-120b`.
+2. **Every bill now has a ministry** (`prs=140`, zero Unknown) with provenance in
+   `bills.ministry_source`/`ministry_confidence`/`ministry_evidence`. PRS *does*
+   publish it; the scraper just never wrote it.
+3. **Both timeline payloads emit both key spellings** (`date`/`event` and
+   `event_date`/`event_type`, plus `house`, `all_sourced`, `event_count`).
+
+**What you should do instead — in this order:**
+
+- **Finish and commit P1.** Pass 1 hit the 2-hour cap with
+  `ActsPage.jsx`, `ActDetailPage.jsx`, `LifecycleTimeline.jsx` and edits to
+  `App.jsx`/`BillCard.jsx`/`Sidebar.jsx`/`ExplorePage.jsx`/`services/api.js`
+  left **uncommitted**. The user presents tomorrow: getting a working, committed
+  UI matters more than any new feature. Verify with `npm run build` (must pass)
+  and a real request against :5000, then commit with explicit paths.
+- **Use the ministry data in the UI.** Every bill has one now, so the bill card
+  and the Explore filter should show it; if the value is inferred
+  (`ministry_inferred: true`, currently none are) label it, else show it plain.
+- **Do not** re-run `sync_acts.py` or `enrich_ministries.py`, and do **not**
+  bulk-regenerate summaries — the Groq free tier 429s on bursts and the demo
+  summaries for bills 1, 2, 3, 5, 10, 12, 17, 21 are already cached.
+- The backend on :5000 was restarted by the parent and is serving the new code;
+  restart it again if you change backend files.
