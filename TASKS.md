@@ -11,7 +11,11 @@ Last updated: 2026-09-18
 
 ## Active
 
-_No tasks are currently `IN_PROGRESS`._
+| ID | Title | Status | Owner/Session | Files touched | Last updated |
+|----|-------|--------|---------------|---------------|--------------|
+| A1 | **Acts tracking:** plan Bill→Act lifecycle work after review feedback ("a Bill is not the law; the Act is"). Plan at `docs/ACTS_TRACKING_PLAN.md` (data model: `acts`, `bill_act_links`, `lifecycle_events`; PRS re-con verified: `/acts/parliament`, `/billtrack/category/billtrack`, per-bill status timeline selectors). Charter `docs/CTO_ACTS.md` (incl. orchestration rules + model split: pass = `z-ai/glm-5.3-flash` pinned in the launcher, children = `nvidia/nemotron-3-ultra-550b-a55b` via `delegation.model`; `delegation.oneshot_max_children=8`, `max_spawn_depth=2`) + pass prompt `docs/CTO_ACTS_PROMPT.md`; overnight loop on branch `feature/acts-tracking`. | IN_PROGRESS (P0 committed and verified; P1 frontend next) | hermes-session 2026-09-29 → overnight CTO loop | docs/ACTS_TRACKING_PLAN.md, docs/CTO_ACTS.md, docs/CTO_ACTS_PROMPT.md, docs/cto-report-acts.md, backend/models.py, backend/routes.py, backend/src/scraping/prs_acts_scraper.py, backend/services/act_linker.py, backend/scripts/setup/sync_acts.py, backend/scripts/maintenance/migrate_acts_tables.py, backend/scripts/verify_acts.py, frontend_new/src | 2026-09-29 |
+| A2 | **Remove the fabricated bill timeline** (`backend/routes.py:262-327`: "passed" = introduction + 30 days, withdrawn/lapsed = `utcnow()`). Part of A1 P0 — lifecycle events must be sourced or absent. | DONE (verified: grep timedelta(days=30) over backend .py files returns empty; get_bill timeline reads only sourced LifecycleEvent rows; see docs/cto-report-acts.md pass 1) | overnight CTO loop | backend/routes.py | 2026-09-29 |
+| D2 | Rebuild synopsis after 5/10 feedback: research agent entropy, summarization evaluation/verification, architecture, prompting-vs-FT with verified citations; align to handout Phase-1 rubric (C2-C5). **Drafted:** v3.docx + docs/RESEARCH_BRIEF.md + docs/synopsis/build_synopsis_v3.py. Awaiting team review/rewrite in their own words; Section 3 left to each member. | BLOCKED (needs team review) | hermes-session 2026-09-21 | VidhanAI_Synopsis_Report_v4.docx (supersedes v3), docs/RESEARCH_BRIEF.md, docs/PLAIN_ENGLISH_GUIDE.md, docs/synopsis/build_synopsis_v3.py, docs/synopsis/build_figures.py (+ 2 PNG figures), SESSION_LOG.md, TASKS.md | 2026-09-21 |
 
 ---
 
@@ -19,6 +23,7 @@ _No tasks are currently `IN_PROGRESS`._
 
 | ID | Title | Status | Owner/Session | Files touched | Last updated |
 |----|-------|--------|---------------|---------------|--------------|
+| D3 | **URGENT:** `groq/compound` was shut down by Groq on 2026-09-21 (no replacement listed; requests now error). Default is set in `backend/ai_service.py:112`, `scripts/ml_pipeline/*`, and hard-coded in `backend/agents/orchestrator.py:308` + `routes.py:1408`. Repoint to a pinned model (candidates on Groq's models page: `llama-3.3-70b-versatile`, `openai/gpt-oss-120b`) and re-test the LLM-agent and summary paths. Not started; found while researching D2. | TODO | — | backend/ai_service.py, backend/agents/orchestrator.py, backend/routes.py, backend/scripts/ml_pipeline/ | 2026-09-21 |
 | T2 | Run a security review over the new frontend code (XSS in rendered narratives, localStorage session handling in `vidhanai-user`) | TODO | — | frontend_new/src | 2026-09-18 |
 | T3 | Reconnect the n8n "Gmail account" OAuth2 credential (token expired/revoked) so alert subscriptions deliver real email | TODO | — (user action in n8n UI) | n8n credentials only | 2026-09-18 |
 | T4 | Vectorize documents into ChromaDB (`backend/scripts/ml_pipeline/2_vectorize_docs.py`) — collection `legal_bills` missing, semantic search returns 0 results | TODO | — | backend/instance/chroma_db | 2026-09-18 |
