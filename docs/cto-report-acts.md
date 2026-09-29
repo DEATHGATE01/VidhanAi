@@ -63,7 +63,9 @@ Re-verified myself:
 - `powershell Get-CimInstance Win32_Process` identified both PIDs' command lines.
 - After `Stop-Process -Id 15988 -Force`: `/api/bills/10` → 200 with the full bill
   payload. The blocker was environmental (stale process from the previous pass),
-  not a code defect.
+  not a code defect. Final proof: the venv server's access log (captured when it
+  was shut down at the end of the pass) shows every verification request of this
+  pass — including `GET /api/bills/10` — hitting **that** server with 200s.
 
 **Evidence — real command output produced by this pass lead (my terminal, not
 child self-reports):**
