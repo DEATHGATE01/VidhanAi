@@ -16,11 +16,80 @@ Configuration precedence (later wins):
 """
 from __future__ import annotations
 
+import io
 import os
+import sys
 from pathlib import Path
 
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+
+
+class _ResilientStdout(io.TextIOBase):
+    """stdout/stderr proxy that survives a dead Windows console handle.
+
+    On Windows, ``python app.py`` launched from a console that is closed after
+    the fact (or a service wrapper whose handles are revoked) leaves
+    ``sys.stdout`` pointing at an invalid handle; from then on every
+    ``print()`` raises ``OSError: [Errno 22] Invalid argument``. The
+    bill-detail path is the only route family that prints in-request, so the
+    failure surfaces as a 500 on ``GET /api/bills/<id>`` (reproduced twice on
+    2026-09-29 across two different interpreters). Logging must never take
+    the API down: the first failed write permanently swaps the stream for an
+    ``os.devnull`` sink and the process keeps serving.
+
+    Pure delegation when the underlying stream is healthy; only the failure
+    path changes behavior.
+    """
+
+    def __init__(self, stream):
+        self._stream = stream
+        self._sink = None
+
+    def _nullify(self):
+        # Replace sys.stdout/stderr (whichever this proxy guards) with a
+        # silent sink so subsequent prints bypass this wrapper entirely.
+        if self._sink is None:
+            try:
+                self._sink = open(os.devnull, "w", encoding="utf-8")
+            except OSError:  # pragma: no cover - devnull always opens
+                self._sink = io.StringIO()
+        sys.stdout = self._sink
+
+    def write(self, s):
+        try:
+            return self._stream.write(s)
+        except (OSError, ValueError):
+            self._nullify()
+            return len(s)
+
+    def flush(self):
+        try:
+            self._stream.flush()
+        except (OSError, ValueError):
+            self._nullify()
+
+    def isatty(self):
+        try:
+            return self._stream.isatty()
+        except (OSError, ValueError):
+            return False
+
+    @property
+    def encoding(self):
+        return getattr(self._stream, "encoding", None)
+
+    @property
+    def errors(self):
+        return getattr(self._stream, "errors", None)
+
+
+# Install the guards before create_app() runs: the factory itself prints
+# ("[app] VidhanAI backend ready") and the request paths print more. Wrapping
+# a healthy console is pure delegation; wrapping a dead one turns a hard 500
+# into graceful degradation (CLAUDE.md §7).
+sys.stdout = _ResilientStdout(sys.stdout)
+sys.stderr = _ResilientStdout(sys.stderr)
 
 # Load backend/.env (GROQ_API_KEY, SECRET_KEY, DATABASE_URI, ...) if present.
 # The pipeline scripts and the Flask app rely on these; silently skipping the

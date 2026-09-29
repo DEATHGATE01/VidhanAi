@@ -285,6 +285,29 @@ def get_bill(bill_id):
         except Exception as e:
             print(f"[Timeline] Error: {e}")
         
+        # --- 2b. Linked Act (plan §7 row 4): {title, act_id, year, pdf_url,
+        # verified} when the bill carries a verified BillActLink. Only verified
+        # links are surfaced; match_confidence is echoed so the UI can show the
+        # match as sourced. Graceful degradation: any failure here leaves the
+        # bill response without the act block rather than erroring the route.
+        try:
+            from models import Act as _Act, BillActLink as _BillActLink
+            _link = _BillActLink.query.filter_by(
+                bill_id=bill_data.get('id'), verified=True).first()
+            if _link:
+                _act = _Act.query.get(_link.act_id)
+                if _act:
+                    response_data['act'] = {
+                        "act_id": _act.act_id,
+                        "title": _act.title,
+                        "year": _act.year,
+                        "pdf_url": _act.pdf_url,
+                        "verified": bool(_link.verified),
+                        "match_confidence": _link.match_confidence,
+                    }
+        except Exception as e:
+            print(f"[Act] Error: {e}")
+        
         # --- 3. Linked News (Google News search links) ---
         try:
             bill_title = response_data.get('title', '')
@@ -368,12 +391,36 @@ def list_bills():
             error_out=False
         )
         
+        # Verified Bill->Act links per bill (plan §8: the Explore "Enacted as"
+        # chip). One batched query instead of one per bill; verified only, so a
+        # candidate match is never surfaced as enacted. Absent key = no link.
+        from models import Act as _Act, BillActLink as _BillActLink
+        page_bill_ids = [b.id for b in paginated.items]
+        verified_links = (_BillActLink.query
+                          .filter(_BillActLink.bill_id.in_(page_bill_ids),
+                                  _BillActLink.verified.is_(True))
+                          .all() if page_bill_ids else [])
+        acts_by_id = {a.id: a for a in
+                      _Act.query.filter(_Act.id.in_([l.act_id for l in verified_links])).all()} \
+            if verified_links else {}
+        acts_by_bill = {}
+        for link in verified_links:
+            act = acts_by_id.get(link.act_id)
+            if act:
+                acts_by_bill[link.bill_id] = {
+                    'act_id': act.act_id,
+                    'title': act.title,
+                    'year': act.year,
+                    'verified': True,
+                }
+        
         return jsonify({
             'success': True,
             'page': page,
             'per_page': per_page,
             'total': paginated.total,
             'pages': paginated.pages,
+            'acts_by_bill': acts_by_bill,
             'bills': [bill.to_dict() for bill in paginated.items]
         }), 200
     
