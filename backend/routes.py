@@ -981,17 +981,116 @@ def get_heatmap():
     Query params: days
     """
     days = request.args.get('days', 30, type=int)
-    
+
     try:
         from flask import current_app
         heatmap = db_service.get_reading_heatmap(current_app, days=days)
-        
+
         return jsonify({
             'success': True,
             'period_days': days,
             'data': heatmap
         }), 200
-    
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@api.route('/analytics/lifecycle-stats', methods=['GET'])
+def get_lifecycle_stats():
+    """
+    Bill -> Act conversion analytics (plan §7, last row).
+    Real counts only -- nothing here is estimated or derived: rows are counted
+    from bill_act_links (joined with acts and bills), grouped by the Act's year
+    and the bill's ministry. A candidate (unverified) match is counted
+    separately from verified links, so it never inflates the "enacted" number.
+    """
+    try:
+        from models import Act, BillActLink, Bill
+        from sqlalchemy import case, func
+
+        # Conversion counts by Act year. Act.year comes from the PRS PDF path
+        # segment; a NULL year (never seen in practice) would surface as its
+        # own group with year=null rather than being silently dropped.
+        by_year = db.session.query(
+            Act.year.label('year'),
+            func.count(BillActLink.id).label('links'),
+            func.sum(case((BillActLink.verified.is_(True), 1), else_=0)).label('verified_links'),
+        ).join(BillActLink, BillActLink.act_id == Act.id) \
+         .group_by(Act.year) \
+         .order_by(Act.year.desc()).all()
+
+        # Conversion counts by bill ministry. Links whose bill row is missing
+        # (dangling FK) cannot carry a ministry and are excluded, not bucketed
+        # under "Unknown"; a NULL/empty ministry is likewise excluded.
+        by_ministry = db.session.query(
+            Bill.ministry.label('ministry'),
+            func.count(BillActLink.id).label('links'),
+            func.sum(case((BillActLink.verified.is_(True), 1), else_=0)).label('verified_links'),
+        ).join(BillActLink, BillActLink.bill_id == Bill.id) \
+         .filter(Bill.ministry.isnot(None), Bill.ministry != '') \
+         .group_by(Bill.ministry) \
+         .order_by(func.count(BillActLink.id).desc()).all()
+
+        # Totals over the full link set -- never from the capped detail rows
+        # below -- so the summary numbers cannot disagree with the by_*
+        # aggregates when the link count grows past the cap.
+        totals = db.session.query(
+            func.count(BillActLink.id).label('total'),
+            func.sum(case((BillActLink.verified.is_(True), 1), else_=0)).label('verified'),
+        ).one()
+
+        # Real per-link rows backing the aggregates -- the evidence trail for
+        # anything a reviewer wants to drill into (most recent verified first;
+        # capped, with 'links_shown' stating the cap's effect).
+        link_rows = db.session.query(
+            BillActLink.id.label('link_id'),
+            BillActLink.bill_id.label('bill_id'),
+            Bill.bill_id.label('bill_key'),
+            Bill.title.label('bill_title'),
+            Bill.ministry.label('ministry'),
+            Act.act_id.label('act_key'),
+            Act.title.label('act_title'),
+            Act.year.label('year'),
+            BillActLink.link_type.label('link_type'),
+            BillActLink.match_confidence.label('match_confidence'),
+            BillActLink.verified.label('verified'),
+        ).join(Bill, Bill.id == BillActLink.bill_id, isouter=True) \
+         .join(Act, Act.id == BillActLink.act_id) \
+         .order_by(BillActLink.verified.desc(), BillActLink.match_confidence.desc()) \
+         .limit(500).all()
+
+        links = [{
+            'link_id': r.link_id,
+            'bill_id': r.bill_id,
+            'bill_key': r.bill_key,
+            'bill_title': r.bill_title,
+            'ministry': r.ministry,
+            'act_key': r.act_key,
+            'act_title': r.act_title,
+            'year': r.year,
+            'link_type': r.link_type,
+            'match_confidence': r.match_confidence,
+            'verified': bool(r.verified),
+        } for r in link_rows]
+
+        return jsonify({
+            'success': True,
+            'total_links': int(totals.total or 0),
+            'total_verified': int(totals.verified or 0),
+            'links_shown': len(links),
+            'by_year': [{
+                'year': row.year,
+                'links': row.links,
+                'verified_links': int(row.verified_links or 0),
+            } for row in by_year],
+            'by_ministry': [{
+                'ministry': row.ministry,
+                'links': row.links,
+                'verified_links': int(row.verified_links or 0),
+            } for row in by_ministry],
+            'links': links,
+        }), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
