@@ -9,6 +9,9 @@ Database Models for Regulation Alert System - Enhanced for Big Data Analysis
 - BillSummary: AI-generated summaries
 - SearchHistory: Search analytics (aggregated after 90 days)
 - SearchAnalytics: Long-term aggregated search data
+- Act: First-class Act records (an Act is the law; a Bill is not)
+- BillActLink: Bill -> Act relationship (enacted_as / replaced_by_act / ...)
+- LifecycleEvent: Sourced lifecycle events for bills and acts
 """
 from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
@@ -370,4 +373,144 @@ class BillNotification(db.Model):
             'email_sent': self.email_sent,
             'email_sent_at': self.email_sent_at.isoformat() if self.email_sent_at else None,
             'created_at': self.created_at.isoformat()
+        }
+
+
+class Act(db.Model):
+    """A central Act as a first-class object (the law itself, not the Bill).
+
+    act_id is the slugified PRS PDF basename (stable, unique, re-scrapable).
+    Every date field stays NULL unless it came from scraped content with a
+    source_url -- never estimated, never invented.
+    """
+    __tablename__ = 'acts'
+
+    id = db.Column(db.Integer, primary_key=True)
+    act_id = db.Column(db.String(200), unique=True, nullable=False, index=True)
+    title = db.Column(db.String(500), nullable=False, index=True)
+    short_title = db.Column(db.String(300), index=True)  # normalized, no leading "The"/year
+    year = db.Column(db.Integer, index=True)             # from the PRS PDF path segment
+    act_number = db.Column(db.String(50))                # e.g. "No. 12 of 2026" -- only if sourced
+    assent_date = db.Column(db.DateTime)                 # only if sourced
+    commencement_date = db.Column(db.DateTime)           # only if sourced
+    status = db.Column(db.String(50), default='unknown')  # in_force | repealed | spent | unknown
+    source = db.Column(db.String(50))                    # 'prs_acts' | 'indiacode'
+    source_url = db.Column(db.String(500))
+    pdf_url = db.Column(db.String(500))
+    full_text = db.Column(db.Text)
+    date_scraped = db.Column(db.DateTime, default=datetime.utcnow)
+    last_updated = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    links = db.relationship('BillActLink', backref='act', lazy='dynamic', cascade='all, delete-orphan')
+    lifecycle_events = db.relationship('LifecycleEvent', backref='act', lazy='dynamic')
+
+    def __repr__(self):
+        return f'<Act {self.act_id}: {self.title[:50]}>'
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'act_id': self.act_id,
+            'title': self.title,
+            'short_title': self.short_title,
+            'year': self.year,
+            'act_number': self.act_number,
+            'assent_date': self.assent_date.isoformat() if self.assent_date else None,
+            'commencement_date': self.commencement_date.isoformat() if self.commencement_date else None,
+            'status': self.status,
+            'source': self.source,
+            'source_url': self.source_url,
+            'pdf_url': self.pdf_url,
+            'date_scraped': self.date_scraped.isoformat() if self.date_scraped else None,
+            'last_updated': self.last_updated.isoformat() if self.last_updated else None
+        }
+
+
+class BillActLink(db.Model):
+    """Bill -> Act relationship with explainable, sourced matching.
+
+    match_method: 'prs_status' | 'title_match' | 'body_mention' | 'manual'.
+    evidence always quotes the exact scraped text/URL that justifies the link;
+    verified=True is only ever set for an exact normalized title match or a
+    direct PRS status derivation.
+    """
+    __tablename__ = 'bill_act_links'
+
+    id = db.Column(db.Integer, primary_key=True)
+    bill_id = db.Column(db.Integer, db.ForeignKey('bills.id'), nullable=False, index=True)
+    act_id = db.Column(db.Integer, db.ForeignKey('acts.id'), nullable=False, index=True)
+    link_type = db.Column(db.String(50))   # enacted_as | replaced_by_act | amended_by_act | repealed_by
+    match_method = db.Column(db.String(50))
+    match_confidence = db.Column(db.Float)  # 0..1
+    evidence = db.Column(db.Text)
+    verified = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint('bill_id', 'act_id', 'link_type', name='unique_bill_act_link'),)
+
+    def __repr__(self):
+        return f'<BillActLink bill={self.bill_id} act={self.act_id} {self.link_type}>'
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'bill_id': self.bill_id,
+            'act_id': self.act_id,
+            'link_type': self.link_type,
+            'match_method': self.match_method,
+            'match_confidence': self.match_confidence,
+            'evidence': self.evidence,
+            'verified': self.verified,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+
+class LifecycleEvent(db.Model):
+    """A sourced lifecycle event for a bill and/or act.
+
+    event_type: introduced | referred_to_committee | committee_report |
+    passed_lok_sabha | passed_rajya_sabha | passed_both_houses |
+    president_assent | act_notified | commencement | amendment | repeal | other.
+
+    event_date is NULL when the source does not state one. is_estimated must be
+    False for everything this work creates: False implies source and source_url
+    are set (enforced by verify_acts.py).
+    """
+    __tablename__ = 'lifecycle_events'
+
+    id = db.Column(db.Integer, primary_key=True)
+    bill_id = db.Column(db.Integer, db.ForeignKey('bills.id'), index=True)
+    act_id = db.Column(db.Integer, db.ForeignKey('acts.id'), index=True)
+    event_type = db.Column(db.String(50), nullable=False)
+    event_date = db.Column(db.DateTime)   # NULL when the source does not state one
+    house = db.Column(db.String(50))
+    source = db.Column(db.String(50))     # prs_billtrack | prs_acts | indiacode | manual
+    source_url = db.Column(db.String(500))
+    notes = db.Column(db.Text)
+    is_estimated = db.Column(db.Boolean, default=False)
+    extracted_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint('bill_id', 'act_id', 'event_type', 'event_date',
+                                          name='unique_lifecycle_event'),)
+
+    # Relationships
+    bill = db.relationship('Bill', backref='lifecycle_events')
+
+    def __repr__(self):
+        return f'<LifecycleEvent bill={self.bill_id} act={self.act_id} {self.event_type} {self.event_date}>'
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'bill_id': self.bill_id,
+            'act_id': self.act_id,
+            'event_type': self.event_type,
+            'event_date': self.event_date.isoformat() if self.event_date else None,
+            'house': self.house,
+            'source': self.source,
+            'source_url': self.source_url,
+            'notes': self.notes,
+            'is_estimated': self.is_estimated,
+            'extracted_at': self.extracted_at.isoformat() if self.extracted_at else None
         }

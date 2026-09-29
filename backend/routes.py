@@ -259,70 +259,29 @@ def get_bill(bill_id):
         except Exception as e:
             print(f"[Sentiment] Error: {e}")
         
-        # --- 2. Timeline (built from bill metadata) ---
+        # --- 2. Lifecycle (only from sourced LifecycleEvent rows) ---
+        # The previous implementation fabricated dates here ("passed" =
+        # introduction + 30 days, withdrawn/pending = utcnow()). Those are
+        # gone: /api/bills/<bill_id> emits lifecycle events only from real
+        # LifecycleEvent rows (sourced from PRS with a source_url), or none.
+        # The full sourced timeline lives at GET /api/bills/<bill_id>/lifecycle.
         try:
-            timeline_events = []
-            
-            bill_title = response_data.get('title', '')
-            bill_ministry = response_data.get('ministry', '')
-            bill_status = response_data.get('status', '')
-            intro_date = response_data.get('introduction_date')
-            
-            if intro_date:
-                timeline_events.append({
-                    "date": intro_date,
-                    "event": "introduced",
-                    "title": f"Bill Introduced in Parliament",
-                    "notes": f"{bill_title} was introduced by the Ministry of {bill_ministry}." if bill_ministry else f"{bill_title} was introduced in Parliament.",
-                    "source": "PRS India"
-                })
-            
-            # Add status-based events
-            if bill_status:
-                status_lower = bill_status.lower()
-                if 'passed' in status_lower:
-                    # Estimate passed date as ~30 days after introduction
-                    if intro_date:
-                        try:
-                            from datetime import timedelta
-                            intro_dt = datetime.fromisoformat(intro_date.replace('Z', '+00:00'))
-                            passed_dt = intro_dt + timedelta(days=30)
-                            timeline_events.append({
-                                "date": passed_dt.isoformat(),
-                                "event": "passed",
-                                "title": "Bill Passed by Parliament",
-                                "notes": f"The bill was passed and is now enacted as law.",
-                                "source": "PRS India"
-                            })
-                        except Exception:
-                            pass
-                elif 'withdrawn' in status_lower:
-                    timeline_events.append({
-                        "date": datetime.utcnow().isoformat(),
-                        "event": "controversy",
-                        "title": "Bill Withdrawn",
-                        "notes": "The bill was withdrawn from consideration.",
-                        "source": "PRS India"
-                    })
-                elif 'pending' in status_lower or 'referred' in status_lower:
-                    timeline_events.append({
-                        "date": datetime.utcnow().isoformat(),
-                        "event": "update",
-                        "title": f"Status: {bill_status}",
-                        "notes": "The bill is currently under review by the standing committee.",
-                        "source": "PRS India"
-                    })
-                elif 'infructuous' in status_lower or 'lapsed' in status_lower:
-                    timeline_events.append({
-                        "date": datetime.utcnow().isoformat(),
-                        "event": "controversy",
-                        "title": f"Bill Lapsed / Infructuous",
-                        "notes": f"The bill was marked as {bill_status}.",
-                        "source": "PRS India"
-                    })
-            
-            if timeline_events:
-                response_data['timeline'] = {"events": timeline_events}
+            from models import LifecycleEvent as _LifecycleEvent
+            events = _LifecycleEvent.query.filter_by(bill_id=bill_data.get('id')) \
+                .order_by(_LifecycleEvent.event_date.asc().nullsfirst()) \
+                .all()
+            if events:
+                response_data['timeline'] = {
+                    "events": [{
+                        "date": ev.event_date.isoformat() if ev.event_date else None,
+                        "event": ev.event_type,
+                        "title": _lifecycle_event_title(ev),
+                        "notes": ev.notes,
+                        "source": "PRS India" if ev.source == 'prs_billtrack' else (ev.source or ''),
+                        "source_url": ev.source_url,
+                        "is_estimated": bool(ev.is_estimated),
+                    } for ev in events]
+                }
         except Exception as e:
             print(f"[Timeline] Error: {e}")
         
@@ -442,6 +401,294 @@ def get_bill_summary(bill_id):
     
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+def _lifecycle_event_title(ev):
+    """Human title for a LifecycleEvent, used by the timeline payloads."""
+    titles = {
+        'introduced': 'Bill Introduced in Parliament',
+        'referred_to_committee': 'Referred to Committee',
+        'committee_report': 'Committee Report',
+        'passed_lok_sabha': 'Passed Lok Sabha',
+        'passed_rajya_sabha': 'Passed Rajya Sabha',
+        'passed_both_houses': 'Passed by Both Houses',
+        'president_assent': "President's Assent",
+        'act_notified': 'Act Notified',
+        'commencement': 'Commencement',
+        'amendment': 'Amended',
+        'repeal': 'Repealed',
+        'withdrawn': 'Bill Withdrawn',
+        'negatived': 'Negatived',
+        'lapsed': 'Bill Lapsed',
+    }
+    return titles.get(ev.event_type, (ev.notes or ev.event_type))
+
+
+# ============================================================================
+# ACTS (first-class objects: an Act is the law; a Bill is not)
+# ============================================================================
+
+@api.route('/acts', methods=['GET'])
+def list_acts():
+    """
+    List Acts with pagination and filters
+    Query params: q, year, status, page, per_page
+    """
+    q = request.args.get('q', '').strip()
+    year = request.args.get('year', type=int)
+    status = request.args.get('status', '').strip()
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+
+    page = max(1, page)
+    per_page = min(max(1, per_page), 100)
+
+    try:
+        from models import Act, BillActLink
+        query = Act.query
+        if q:
+            like = f"%{q}%"
+            query = query.filter((Act.title.ilike(like)) | (Act.act_id.ilike(like)))
+        if year:
+            query = query.filter(Act.year == year)
+        if status:
+            query = query.filter(Act.status == status)
+
+        pagination = query.order_by(Act.year.desc(), Act.title.asc()) \
+            .paginate(page=page, per_page=per_page, error_out=False)
+
+        items = []
+        for act in pagination.items:
+            data = act.to_dict()
+            data['linked_bill_count'] = act.links.count()
+            items.append(data)
+
+        return jsonify({
+            'success': True,
+            'count': len(items),
+            'total': pagination.total,
+            'page': page,
+            'per_page': per_page,
+            'acts': items
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@api.route('/acts/<act_id>', methods=['GET'])
+def get_act(act_id):
+    """
+    Get one Act with its linked bills and its lifecycle events
+    """
+    try:
+        from models import Act, BillActLink, LifecycleEvent
+        act = Act.query.filter_by(act_id=act_id).first()
+        if not act:
+            return jsonify({'success': False, 'error': f'Act not found: {act_id}'}), 404
+
+        data = act.to_dict()
+
+        linked_bills = []
+        for link in act.links.all():
+            bill = Bill.query.get(link.bill_id)
+            if not bill:
+                continue  # dangling FK row; skip rather than crash
+            linked_bills.append({
+                'id': bill.id,
+                'bill_id': bill.bill_id,
+                'title': bill.title,
+                'status': bill.status,
+                'url': bill.url,
+                'link_type': link.link_type,
+                'match_method': link.match_method,
+                'match_confidence': link.match_confidence,
+                'verified': link.verified,
+                'evidence': link.evidence,
+            })
+
+        events = LifecycleEvent.query.filter_by(act_id=act.id) \
+            .order_by(LifecycleEvent.event_date.asc().nullsfirst()).all()
+
+        data['bills'] = linked_bills
+        data['lifecycle_events'] = [ev.to_dict() for ev in events]
+        data['verified_link_count'] = sum(1 for b in linked_bills if b['verified'])
+
+        return jsonify({'success': True, 'act': data}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@api.route('/bills/<bill_id>/lifecycle', methods=['GET'])
+def get_bill_lifecycle(bill_id):
+    """
+    Merged, SOURCED timeline for a bill: the PRS status events plus the Act
+    chain (enacted as -> assent if known -> commencement if known). Every event
+    carries source, source_url and is_estimated; dates come only from scraped
+    content and are NULL when the source does not state one.
+    """
+    try:
+        from models import Act, BillActLink, LifecycleEvent
+
+        bill = None
+        try:
+            bill = Bill.query.get(int(bill_id))
+        except (ValueError, TypeError):
+            pass
+        if not bill:
+            bill = Bill.query.filter_by(bill_id=bill_id).first()
+        if not bill:
+            return jsonify({'success': False, 'error': f'Bill not found: {bill_id}'}), 404
+
+        events = []
+
+        # 1. PRS status events for this bill.
+        for ev in LifecycleEvent.query.filter_by(bill_id=bill.id) \
+                .order_by(LifecycleEvent.event_date.asc().nullsfirst()).all():
+            events.append({
+                'event_type': ev.event_type,
+                'event_date': ev.event_date.isoformat() if ev.event_date else None,
+                'house': ev.house,
+                'source': ev.source,
+                'source_url': ev.source_url,
+                'notes': ev.notes,
+                'is_estimated': bool(ev.is_estimated),
+                'title': _lifecycle_event_title(ev),
+            })
+
+        # 2. Act chain from verified links (assent/commencement only when the
+        #    source states them -- the fields stay NULL otherwise).
+        for link in BillActLink.query.filter_by(bill_id=bill.id).all():
+            act = Act.query.get(link.act_id)
+            if not act:
+                continue
+            if link.verified:
+                events.append({
+                    'event_type': 'enacted_as' if link.link_type != 'replaced_by_act'
+                                  else 'replaced_by_act',
+                    'event_date': None,
+                    'house': None,
+                    'source': 'prs_acts',
+                    'source_url': act.source_url,
+                    'notes': f"Enacted as {act.title}" if link.link_type != 'replaced_by_act'
+                             else f"Replaced by {act.title}",
+                    'is_estimated': False,
+                    'title': act.title,
+                    'act_id': act.act_id,
+                    'pdf_url': act.pdf_url,
+                    'match_confidence': link.match_confidence,
+                })
+            if act.assent_date:
+                events.append({
+                    'event_type': 'president_assent',
+                    'event_date': act.assent_date.isoformat(),
+                    'house': None,
+                    'source': act.source or 'indiacode',
+                    'source_url': act.source_url,
+                    'notes': f"{act.title} assented ({act.act_number})" if act.act_number
+                             else f"{act.title} assented",
+                    'is_estimated': False,
+                    'title': "President's Assent",
+                    'act_id': act.act_id,
+                })
+            if act.commencement_date:
+                events.append({
+                    'event_type': 'commencement',
+                    'event_date': act.commencement_date.isoformat(),
+                    'house': None,
+                    'source': act.source or 'indiacode',
+                    'source_url': act.source_url,
+                    'notes': f"{act.title} commenced",
+                    'is_estimated': False,
+                    'title': 'Commencement',
+                    'act_id': act.act_id,
+                })
+
+        # Sort by date (undated milestones keep their relative position at the end).
+        events.sort(key=lambda e: (e['event_date'] is None, e['event_date'] or ''))
+
+        return jsonify({
+            'success': True,
+            'bill': {'id': bill.id, 'bill_id': bill.bill_id, 'title': bill.title,
+                     'status': bill.status, 'url': bill.url},
+            'event_count': len(events),
+            'all_sourced': all(e['is_estimated'] is False and e['source'] and e['source_url']
+                               for e in events) if events else True,
+            'events': events
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@api.route('/admin/sync-acts', methods=['POST'])
+def admin_sync_acts():
+    """
+    Trigger the Acts sync (acts + timeline + links).
+    Same response shape as /api/admin/index-all-bills.
+    Bounded by --limit semantics: accepts ?limit (default 50) to keep PRS load low.
+    """
+    try:
+        import threading
+        from flask import current_app
+        from src.scraping.prs_acts_scraper import PRSActsScraper
+        from services.act_linker import run_linker
+        from models import LifecycleEvent as _LifecycleEvent
+
+        limit = request.args.get('limit', 50, type=int)
+
+        def _run_sync():
+            app = current_app._get_current_object()
+            with app.app_context():
+                scraper = PRSActsScraper()
+                # Upsert acts (bounded slice).
+                from models import Act as _Act
+                items = scraper.fetch_acts_list(max_items=limit)
+                for item in items:
+                    existing = _Act.query.filter_by(act_id=item['act_id']).first()
+                    if existing:
+                        continue
+                    db.session.add(_Act(
+                        act_id=item['act_id'], title=item['title'], year=item['year'],
+                        pdf_url=item['pdf_url'], source='prs_acts',
+                        source_url=item['source_url'], status='unknown',
+                    ))
+                db.session.commit()
+
+                # Refresh timelines for the bills we already track.
+                bills = Bill.query.all()
+                for bill in bills:
+                    if not bill.url:
+                        continue
+                    for ev in scraper.fetch_bill_status_timeline(bill.url):
+                        existing = _LifecycleEvent.query.filter_by(
+                            bill_id=bill.id, event_type=ev['event_type'],
+                            event_date=ev.get('date')).first()
+                        if existing:
+                            continue
+                        db.session.add(_LifecycleEvent(
+                            bill_id=bill.id, event_type=ev['event_type'],
+                            event_date=ev.get('date'), house=ev.get('house'),
+                            source='prs_billtrack', source_url=bill.url,
+                            notes=ev.get('raw_label'), is_estimated=False,
+                        ))
+                    db.session.commit()
+
+                # Linker.
+                links = run_linker()
+                app.config['LAST_ACTS_SYNC'] = {
+                    'acts': len(items), 'links_verified': links['links_verified'],
+                    'links_candidate': links['links_candidate'],
+                }
+
+        thread = threading.Thread(target=_run_sync, daemon=True)
+        thread.start()
+
+        return jsonify({
+            'success': True,
+            'message': 'Acts sync started in background',
+            'details': {'limit': limit}
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 # ============================================================================
