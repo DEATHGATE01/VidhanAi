@@ -61,9 +61,13 @@ export default function ActsPage() {
     setCurrentPage(1)
   }
 
-  // Derive distinct years and statuses from data
+  // Derive distinct years and statuses from data. Acts with status 'unknown'
+  // are excluded from the filter: PRS does not publish a status for these
+  // rows, so an "All Statuses / unknown" dropdown would offer exactly one
+  // meaningless value (CTO handoff defect 2). The filter renders only when
+  // more than one real status exists.
   const years = [...new Set(acts.map((a) => a.year).filter(Boolean))].sort((a, b) => b - a)
-  const statuses = [...new Set(acts.map((a) => a.status).filter(Boolean))].sort()
+  const statuses = [...new Set(acts.map((a) => a.status).filter((s) => s && s !== 'unknown'))].sort()
 
   // Client-side filtering
   const kw = searchKeyword.trim().toLowerCase()
@@ -128,22 +132,24 @@ export default function ActsPage() {
             </select>
           </div>
 
-          {/* Status filter */}
-          <div style={{ minWidth: 160 }}>
-            <label htmlFor="acts-status" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0,0,0,0)' }}>Filter by status</label>
-            <select
-              id="acts-status"
-              value={statusFilter}
-              onChange={(e) => handleStatusChange(e.target.value)}
-              className="premium-input"
-              style={{ padding: '0.6rem 2.2rem 0.6rem 0.9rem', fontSize: '0.85rem', cursor: 'pointer', backgroundImage: 'none' }}
-            >
-              <option value="">All Statuses</option>
-              {statuses.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-          </div>
+          {/* Status filter — only when more than one real status exists */}
+          {statuses.length > 1 && (
+            <div style={{ minWidth: 160 }}>
+              <label htmlFor="acts-status" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0,0,0,0)' }}>Filter by status</label>
+              <select
+                id="acts-status"
+                value={statusFilter}
+                onChange={(e) => handleStatusChange(e.target.value)}
+                className="premium-input"
+                style={{ padding: '0.6rem 2.2rem 0.6rem 0.9rem', fontSize: '0.85rem', cursor: 'pointer', backgroundImage: 'none' }}
+              >
+                <option value="">All Statuses</option>
+                {statuses.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Clear filters */}
           {(searchKeyword || yearFilter || statusFilter) && (
@@ -236,9 +242,18 @@ export default function ActsPage() {
                       {act.act_number || '—'}
                     </td>
                     <td style={{ padding: '0.85rem 1rem', textAlign: 'center', verticalAlign: 'middle' }}>
-                      <span className={`badge ${act.status === 'active' ? 'badge-emerald' : act.status === 'repealed' ? 'badge-rose' : 'badge-slate'}`}>
-                        {act.status || 'unknown'}
-                      </span>
+                      {act.status && act.status !== 'unknown' ? (
+                        <span className={`badge ${act.status === 'active' ? 'badge-emerald' : act.status === 'repealed' ? 'badge-rose' : 'badge-slate'}`}>
+                          {act.status}
+                        </span>
+                      ) : (
+                        <span
+                          style={{ color: 'var(--text-3)', fontStyle: 'italic', fontSize: '0.8rem' }}
+                          title="PRS does not publish a status for this Act"
+                        >
+                          Not published
+                        </span>
+                      )}
                     </td>
                     <td style={{ padding: '0.85rem 1rem', textAlign: 'center', verticalAlign: 'middle' }}>
                       <span className="badge badge-vidhan" style={{ fontSize: '0.7rem' }}>

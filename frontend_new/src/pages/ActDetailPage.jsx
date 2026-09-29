@@ -182,27 +182,59 @@ export default function ActDetailPage() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <span style={{ color: 'var(--text-3)' }}>Act No.:</span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 500, color: 'var(--text-1)' }}>
-              {act.act_number || '—'}
-            </span>
+            {act.act_number ? (
+              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 500, color: 'var(--text-1)' }}>
+                {act.act_number}
+              </span>
+            ) : (
+              <span
+                style={{ color: 'var(--text-3)', fontStyle: 'italic' }}
+                title="PRS does not publish Act numbers; India Code (the authoritative source) is unreachable from this deployment"
+              >
+                Not published by PRS
+              </span>
+            )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <span style={{ color: 'var(--text-3)' }}>Status:</span>
-            <span className={getStatusBadgeClass(act.status)}>
-              {act.status || 'unknown'}
-            </span>
+            {act.status && act.status !== 'unknown' ? (
+              <span className={getStatusBadgeClass(act.status)}>
+                {act.status}
+              </span>
+            ) : (
+              <span
+                style={{ color: 'var(--text-3)', fontStyle: 'italic' }}
+                title="PRS does not publish a status for this Act"
+              >
+                Not published by PRS
+              </span>
+            )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <span style={{ color: 'var(--text-3)' }}>Assented:</span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 500, color: 'var(--text-1)' }}>
-              {formatDate(act.assent_date)}
-            </span>
+            {act.assent_date ? (
+              formatDate(act.assent_date)
+            ) : (
+              <span
+                style={{ color: 'var(--text-3)', fontStyle: 'italic' }}
+                title="Assent date is not on PRS; India Code (the authoritative source) is unreachable from this deployment"
+              >
+                Not published by PRS
+              </span>
+            )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <span style={{ color: 'var(--text-3)' }}>Commenced:</span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 500, color: 'var(--text-1)' }}>
-              {formatDate(act.commencement_date)}
-            </span>
+            {act.commencement_date ? (
+              formatDate(act.commencement_date)
+            ) : (
+              <span
+                style={{ color: 'var(--text-3)', fontStyle: 'italic' }}
+                title="Commencement date is not on PRS; India Code (the authoritative source) is unreachable from this deployment"
+              >
+                Not published by PRS
+              </span>
+            )}
           </div>
         </div>
 
@@ -239,6 +271,10 @@ export default function ActDetailPage() {
             <Scale size={20} style={{ color: 'var(--accent)' }} />
             Bills This Came From ({act.bills.length})
           </h2>
+          <p style={{ fontSize: '0.78rem', color: 'var(--text-3)', margin: '-0.5rem 0 0.85rem' }}>
+            Rows badged "Verified" are exact normalized title matches against PRS data.
+            Rows badged "Candidate" are unconfirmed links shown for transparency only — they are not established facts.
+          </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {act.bills.map((bill) => {
               const lifecycleEvents = billLifecycles[bill.id] || []
@@ -289,9 +325,9 @@ export default function ActDetailPage() {
                         <span
                           className="badge badge-amber"
                           style={{ fontSize: '0.65rem', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}
-                          title={`Match confidence: ${Math.round(bill.match_confidence * 100)}%`}
+                          title={`Unverified candidate match — not confirmed (${Math.round(bill.match_confidence * 100)}% title similarity against PRS data)`}
                         >
-                          <Info size={10} /> {Math.round(bill.match_confidence * 100)}%
+                          <Info size={10} /> Candidate {Math.round(bill.match_confidence * 100)}% — not confirmed
                         </span>
                       )}
                       {bill.url && (
