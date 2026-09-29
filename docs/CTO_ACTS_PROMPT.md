@@ -128,3 +128,34 @@ done, verified, and committed (`83ee403`, plus the timeline alias commit) — do
   summaries for bills 1, 2, 3, 5, 10, 12, 17, 21 are already cached.
 - The backend on :5000 was restarted by the parent and is serving the new code;
   restart it again if you change backend files.
+
+### Addendum — 01:35 (verified UI state, 2 things to fix)
+
+The parent drove the running UI in a real browser (frontend :5173, backend :5000).
+What is already good: `/acts` lists 50 acts with linked-bill counts and filters;
+`/explore` cards now show the resolved ministry (🏛️ Ministry of …); the Act
+detail page renders "Bills This Came From (2)" with the verified link badged
+"Verified" and its match evidence quoted; `npm run build` passes (2041 modules).
+
+Two defects worth fixing, both frontend, both in files nobody has committed yet:
+
+1. **An unverified match is listed as if confirmed.** On
+   `/acts/public-examinations-prevention-of-unfair-means-act-2026`, the
+   "Bills This Came From (2)" section shows the verified Bill (score 1.00) *and*
+   a 60% candidate match with only a bare "60%" to distinguish it. Under a
+   heading that says these bills came from this Act, that reads as a fact. Label
+   candidate rows explicitly ("Unverified candidate match — not confirmed") or
+   move them to a separate "Possible links" group. This matters more than usual
+   for this project: the whole review argument is that the data is sourced.
+2. **Empty fields render as "—" / "unknown".** Act detail shows `Act No.: —`,
+   `Assented: —`, `Commenced: —`, `Status: unknown`, and `/acts` shows an "All
+   Statuses / unknown" filter. PRS simply does not publish act numbers, assent
+   dates or a status for these rows (and indiacode.nic.in is unreachable from
+   this machine, so they stay NULL by design — they must not be invented). Say
+   "Not published by PRS" instead of a dash, and drop the status filter when
+   every act shares one value.
+
+Also: `/explore` page 1 shows the newest bills (ids 129–140), none of which has a
+verified Act link, so a reviewer may not see an "Enacted as" chip without
+searching. Sorting/flagging enacted bills first would make the lifecycle visible
+immediately — optional, but it is the feature the review asked for.
