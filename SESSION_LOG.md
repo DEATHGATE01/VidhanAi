@@ -416,3 +416,53 @@ Instructions" instruction set; create `TASKS.md` and `SESSION_LOG.md`.
 **Next session should start by:** reading the new `CLAUDE.md`, then TASKS.md,
 then confirming `git status` (CLAUDE.md, TASKS.md, SESSION_LOG.md are currently
 uncommitted changes on `main`).
+
+---
+
+## 2026-09-30 01:35–02:45 — Overnight CTO pass (acts loop): P1 UI completed, verified, committed; A5 defects fixed
+
+**Intended:** Per `docs/CTO_ACTS.md` + `docs/CTO_ACTS_PROMPT.md` addendum: finish and
+commit P1 (the frontend Acts UI the provider-stalled passes left uncommitted),
+verify it for real, then fix the two A5 defects the browser check handed over.
+
+**What happened:**
+- Start state: pass 1 (2026-09-29) had committed P0 (`37ce2cd`); passes 2–4 were
+  preserved as WIP in `d377e87` (routes.py act blocks, app.py resilient stdout).
+  The working copy carried the P1 frontend files untracked/uncommitted. A
+  concurrent hermes session landed `83ee403` (ministry enrichment, A3) and later
+  `f4d948e`/`ef4fd2d`/`6a50a28` (timeline aliasing + handoff docs) DURING this
+  pass — the route shape changed under me mid-investigation (my "act: null"
+  probe was the flat shape of the old code; the new code nests under `bill`).
+- Orchestration: 2 read-only children (contract-verifier, build-reviewer), both
+  on nvidia/nemotron-3-ultra, disjoint by concern, no writers, no git. Build
+  reviewer: build passes (2041 modules), lint warnings pre-existing, all §8
+  checklist items verified. Contract verifier: contract holds — but its claim
+  that `/api/bills/<id>` returns the act block was checked against the OLD code;
+  I re-proved it myself post-restart (bill 21 → `bill['act']` verified:true,
+  timeline 3 events all_sourced). `acts_by_bill`: 32 verified entries across all
+  140 bills, keyed by bill id, chip contract fields all present.
+- Committed `5e68837` feat(acts): P1 UI — ActsPage, ActDetailPage,
+  LifecycleTimeline, BillCard "Enacted as" chip, Explore wiring, App/Sidebar
+  routes, api.js (995 insertions).
+- Fixed A5 (TASKS.md): `b315dcc` fix(acts) — candidate badge reads
+  "Candidate N% — not confirmed" + section explanatory line; Act No./Status/
+  Assented/Commenced render "Not published by PRS" with reason tooltips; /acts
+  status filter dropped when all acts share one non-status. Verified in the
+  LIVE browser on :5173 (detail page: no bare "60%", no "Act No.: —", "not
+  confirmed" present; /acts: 0 status-filter selects, "Not published" cells).
+- Data spine re-verified after the concurrent commits: verify_acts.py 6/6 PASS
+  (50 acts / 406 events / 57 links), grep timedelta(days=30) empty, routes.py
+  py_compile OK.
+
+**Unresolved / next pass should know:**
+- P2 (optional): India Code prober (indiacode.nic.in timed out 2026-09-29 —
+  record the blocker if still unreachable), state-legislature Acts,
+  lifecycle-stats analytics. §10 criterion 4 (5+ Passed bills' lifecycles vs
+  PRS dates) has pass-1 evidence (6 bills re-checked, no drift) but a fresh
+  re-verify before the merge would be cheap insurance.
+- The backend on :5000 is the concurrent session's server (started 01:08:52,
+  Windows-Store python) serving current code — do not kill it without checking
+  listeners; it is NOT stale.
+- /explore "Enacted as" chip needs a search to become visible (page 1 = newest
+  unenacted bills) — optional polish the handoff noted, left as-is.
+- A5's "chip visibility" half and P2 remain; everything else on A1–A5 is done.
