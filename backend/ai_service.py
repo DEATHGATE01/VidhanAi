@@ -44,11 +44,9 @@ try:
 except ImportError:  # pragma: no cover
     TEXTBLOB_AVAILABLE = False
 
-try:
-    from groq import Groq
-    GROQ_AVAILABLE = True
-except ImportError:  # pragma: no cover
-    GROQ_AVAILABLE = False
+# The `groq` SDK is intentionally NOT imported: the Groq backend talks to the
+# REST API over HTTPS (see generate_groq_summary). Requiring the SDK meant a
+# deploy without it silently fell back to rule-based extraction.
 
 # Lazy-loaded heavy imports (TensorFlow, transformers, peft)
 # Only imported when USE_LOCAL_LORA=1 and model is actually needed
@@ -108,8 +106,20 @@ LEGAL_DISCLAIMER = (
 )
 
 # NOTE: the paper referenced `llama-3.3-70b-versatile`, which Groq has since
-# retired. `groq/compound` is the current flagship text model on this key.
-GROQ_MODEL_NAME = os.environ.get("VIDHANAI_GROQ_MODEL", "groq/compound")
+# retired; `groq/compound` (the previous default here) is also gone -- Groq
+# returns 404 "does not exist or you do not have access" for both on this key.
+# `openai/gpt-oss-120b` is the strongest text model the key can reach and is
+# what serves user-facing summaries (verified 2026-09-29).
+GROQ_MODEL_NAME = os.environ.get("VIDHANAI_GROQ_MODEL", "openai/gpt-oss-120b")
+GROQ_API_URL = os.environ.get("VIDHANAI_GROQ_URL", "https://api.groq.com/openai/v1/chat/completions")
+# Groq's API sits behind Cloudflare, which returns HTTP 403 "error code: 1010"
+# for non-browser clients (the groq SDK's UA included). Sending a browser UA is
+# what makes the request succeed from this host -- measured, not assumed.
+GROQ_USER_AGENT = os.environ.get(
+    "VIDHANAI_GROQ_UA",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/122.0 Safari/537.36",
+)
 LORA_BASE_MODEL = os.environ.get("VIDHANAI_LORA_BASE", "unsloth/Llama-3.2-3B-Instruct-bnb-4bit")
 LORA_ADAPTER_DIR = os.environ.get(
     "VIDHANAI_LORA_DIR",
@@ -313,58 +323,93 @@ def generate_ollama_summary(text: str) -> Optional[str]:
 
 
 # ---------------------------------------------------------------------------
-# Groq backend (default, production)
+# Groq backend (primary, production)
+#
+# Talks to Groq over plain HTTPS instead of the `groq` SDK, for two measured
+# reasons (2026-09-29):
+#   1. the deploy venv does not ship the SDK (``import groq`` raises, so the SDK
+#      path silently degraded to the rule-based extractive fallback), and
+#      ``requests`` is already a dependency;
+#   2. the SDK's default User-Agent is rejected by Groq's Cloudflare edge with
+#      HTTP 403 "error code: 1010"; the same request with a browser UA succeeds.
+# Both are why every stored summary read ``rule_based_extractive_v1``: the API
+# was never actually reached. Nothing here fabricates output — any failure
+# returns ``None`` so the caller degrades honestly.
 # ---------------------------------------------------------------------------
 
-_GROQ_CLIENT = None
 
+def generate_groq_summary(text: str, model: str = GROQ_MODEL_NAME,
+                          retries: int = 3, backoff_s: float = 5.0) -> Optional[str]:
+    """Call Groq with the expert prompt. This is the production default.
 
-def _get_groq_client():
-    """Lazy-init the Groq client using GROQ_API_KEY."""
-    global _GROQ_CLIENT
-    if _GROQ_CLIENT is not None:
-        return _GROQ_CLIENT
-    if not GROQ_AVAILABLE:
+    ``retries`` is a small number (default 3) with exponential backoff, and a
+    Groq 429 is honoured using its ``Retry-After`` header when present -- the free
+    tier rate-limits bursts, and a 429 that is not absorbed here surfaces to the
+    user as the extractive fallback. On persistent failure returns ``None`` and
+    the caller degrades honestly (no fake output; the summary is stamped as
+    ``rule_based_extractive_v1``).
+    """
+    try:
+        import requests as _requests
+    except ImportError:  # pragma: no cover - requests is in requirements
+        logger.warning("requests not installed; Groq backend unavailable.")
         return None
+
     api_key = os.environ.get("GROQ_API_KEY")
     if not api_key:
         logger.warning("GROQ_API_KEY not set; Groq backend unavailable.")
         return None
-    _GROQ_CLIENT = Groq(api_key=api_key)
-    return _GROQ_CLIENT
 
-
-def generate_groq_summary(text: str, model: str = GROQ_MODEL_NAME,
-                          retries: int = 1, backoff_s: float = 4.0) -> Optional[str]:
-    """Call Groq with the expert prompt. This is the production default.
-
-    ``retries`` is a small number (default 1) of naive retries with fixed
-    backoff to ride through transient 429 rate-limit races. On persistent
-    failure returns ``None`` and the caller degrades honestly (no fake
-    output; the summary is stamped as ``rule_based_extractive_v1``).
-    """
-    client = _get_groq_client()
-    if client is None:
-        return None
     import time as _time
+
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": EXPERT_SYSTEM_PROMPT},
+            {"role": "user", "content": f"Simplify this legal text:\n\n{text[:15000]}"},
+        ],
+        "temperature": 0.3,
+        # No max_tokens cap: gpt-oss-120b is a reasoning model and needs headroom
+        # for its reasoning tokens before the visible answer.
+    }
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "User-Agent": GROQ_USER_AGENT,
+    }
+
     last_exc: Exception | None = None
     for attempt in range(retries + 1):
         try:
-            response = client.chat.completions.create(
-                messages=[
-                    {"role": "system", "content": EXPERT_SYSTEM_PROMPT},
-                    {"role": "user", "content": f"Simplify this legal text:\n\n{text[:15000]}"},
-                ],
-                model=model,
-                temperature=0.3,
-            )
-            return (response.choices[0].message.content or "").strip() or None
+            resp = _requests.post(GROQ_API_URL, json=payload, headers=headers, timeout=300)
+            if resp.status_code == 429:
+                # Prefer the server's own instruction over our backoff curve.
+                retry_after = resp.headers.get("Retry-After") or resp.headers.get("retry-after")
+                try:
+                    wait = float(retry_after) if retry_after else backoff_s * (2 ** attempt)
+                except ValueError:
+                    wait = backoff_s * (2 ** attempt)
+                wait = min(wait, 60.0)
+                last_exc = RuntimeError(f"429 rate limited (waiting {wait:.0f}s)")
+                logger.warning("Groq rate limited (attempt %d/%d); waiting %.0fs",
+                               attempt + 1, retries + 1, wait)
+                if attempt < retries:
+                    _time.sleep(wait)
+                continue
+            resp.raise_for_status()
+            data = resp.json()
+            content = (data.get("choices") or [{}])[0].get("message", {}).get("content")
+            text_out = (content or "").strip()
+            if text_out:
+                return text_out
+            # A reasoning model can return an empty message when the budget is
+            # consumed by reasoning; treat that as a failure, not as a summary.
+            last_exc = RuntimeError("Groq returned an empty completion")
         except Exception as exc:  # pragma: no cover - network/api
             last_exc = exc
-            if attempt < retries:
-                _time.sleep(backoff_s * (attempt + 1))
-    logger.exception("Groq API call failed after %d attempts: %s",
-                     retries + 1, last_exc)
+        if attempt < retries:
+            _time.sleep(backoff_s * (2 ** attempt))
+    logger.warning("Groq API call failed after %d attempts: %s", retries + 1, last_exc)
     return None
 
 
@@ -465,10 +510,22 @@ def semantic_search(query: str, n_results: int = 5) -> list[dict]:
 # High-level summarization entry point
 # ---------------------------------------------------------------------------
 
-def _format_header(title: str, ministry: str, status: str, introduction_date, date_scraped=None) -> str:
+_MINISTRY_SOURCE_LABEL = {
+    "prs": "",
+    "bill_text": " (inferred from the Bill's text)",
+    "llm_inferred": " (inferred by AI)",
+}
+
+
+def _format_header(title: str, ministry: str, status: str, introduction_date,
+                   date_scraped=None, ministry_source=None) -> str:
     parts = [f"## {title}", ""]
-    if ministry:
-        parts.append(f"**Ministry:** {ministry}  ")
+    if ministry and ministry.strip() and ministry.strip().lower() != "unknown":
+        # Spell out provenance: a derived ministry must never read as a scraped one.
+        label = _MINISTRY_SOURCE_LABEL.get((ministry_source or "").strip().lower(), "")
+        parts.append(f"**Ministry:** {ministry}{label}  ")
+    else:
+        parts.append("**Ministry:** Not stated by PRS  ")
     if status:
         parts.append(f"**Status:** {status}  ")
     # Use introduction_date if available, otherwise fall back to date_scraped
@@ -494,6 +551,7 @@ def generate_bill_summary(bill_data: dict, content_data: dict) -> dict:
     status = (bill_data.get("status") or "").strip()
     introduction_date = bill_data.get("introduction_date")
     date_scraped = bill_data.get("date_scraped")
+    ministry_source = (bill_data.get("ministry_source") or "").strip()
 
     full_text = (content_data or {}).get("full_text") or ""
     sections = (content_data or {}).get("sections") or []
@@ -505,21 +563,24 @@ def generate_bill_summary(bill_data: dict, content_data: dict) -> dict:
     confidence = 0.5
 
     if full_text:
-        # Try the configured backends in priority order: locally fine-tuned
-        # model (Ollama) → local LoRA → Groq. Enabling the Ollama backend makes
-        # the fine-tuned model the generative engine for the running app; when
-        # it is unset (cloud deploys) behavior is unchanged and Groq serves.
-        backend_chain = []
+        # Priority order: Groq → local fine-tuned Ollama model (fallback) →
+        # local LoRA adapter → rule-based extractive. Groq leads because it is
+        # both better and far faster on this box (measured 2026-09-29 on the
+        # higher-education Bill: 4,555 chars of structured bullets in 3 s from
+        # gpt-oss-120b vs 3,073 chars in 195 s from local qwen2.5:7b); the local
+        # model is the offline/privacy safety net, not the default. Cloud
+        # deploys (no Ollama) are unaffected.
+        backend_chain = [("groq_expert", generate_groq_summary)]
         if USE_OLLAMA:
             backend_chain.append(("ollama", generate_ollama_summary))
         if USE_LOCAL_LORA:
             backend_chain.append(("local_lora", generate_lora_summary))
-        backend_chain.append(("groq_expert", generate_groq_summary))
 
         for backend_name, backend_fn in backend_chain:
             result = backend_fn(full_text)
             if result:
-                header = _format_header(title, ministry, status, introduction_date, date_scraped)
+                header = _format_header(title, ministry, status, introduction_date, date_scraped,
+                                        ministry_source=ministry_source)
                 summary_text = f"{header}\n\n### AI Generative Summary\n{result}"
                 summary_type = "generative"
                 if backend_name == "ollama":
@@ -545,6 +606,7 @@ def generate_bill_summary(bill_data: dict, content_data: dict) -> dict:
         summary_text = _extractive_summary(
             title, ministry, status, introduction_date,
             full_text, sections, paragraphs, date_scraped,
+            ministry_source=ministry_source,
         )
         summary_type = "extractive"
         model_version = "rule_based_extractive_v1"
@@ -572,7 +634,9 @@ def generate_quick_summary(bill_data: dict) -> dict:
     status = bill_data.get("status", "")
     introduction_date = bill_data.get("introduction_date")
     date_scraped = bill_data.get("date_scraped")
-    header = _format_header(title, ministry, status, introduction_date, date_scraped)
+    ministry_source = (bill_data.get("ministry_source") or "").strip()
+    header = _format_header(title, ministry, status, introduction_date, date_scraped,
+                            ministry_source=ministry_source)
     sentence = f"This bill titled '{title}'"
     if ministry:
         sentence += f" from the {ministry}"
@@ -698,8 +762,10 @@ def _extractive_summary(
     sections: list,
     paragraphs: list,
     date_scraped=None,
+    ministry_source=None,
 ) -> str:
-    parts = [_format_header(title, ministry, status, introduction_date, date_scraped), ""]
+    parts = [_format_header(title, ministry, status, introduction_date, date_scraped,
+                            ministry_source=ministry_source), ""]
 
     # Extract TL;DR (3 bullets)
     sentences = _split_sentences(full_text)

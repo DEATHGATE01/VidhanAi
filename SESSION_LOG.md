@@ -9,6 +9,77 @@ Newest entries at the TOP, oldest at the bottom.
 
 ---
 
+## 2026-09-30 — Session: Groq summaries made real + ministry resolved for every bill
+
+**Context.** Teacher feedback: a Bill is not the law, the Act is (handled by the
+acts loop, task A1). While preparing the demo the user asked whether the
+summaries were actually coming from Groq, and whether the model could supply a
+ministry even when PRS does not. Both turned out to be live defects, and both are
+now fixed and verified.
+
+**1. The Groq path had never produced a single summary.** `generate_bill_summary`
+was stamped `rule_based_extractive_v1` on every live call. Three independent
+causes, found by testing rather than reading: (a) the default model
+`groq/compound` no longer exists on this key (404 `does not exist or you do not
+have access`); (b) the backend venv has **no `groq` SDK installed**, so the SDK
+path raised ImportError and silently fell through; (c) Groq sits behind
+Cloudflare, which returns `403` with `error code: 1010` to non-browser clients —
+the SDK's User-Agent included — so even a valid model id failed. `requests` was
+already a dependency, so the fix is a plain HTTPS call with a browser UA
+(`generate_groq_summary`), defaulting to `openai/gpt-oss-120b`, with 429 handling
+that honours `Retry-After`. Chain order is now **Groq → local Ollama → local LoRA
+→ extractive**, so the local fine-tuned model is the offline/privacy fallback
+instead of the default (measured on the higher-education Bill: 4,555 chars of
+structured bullets in 3 s from gpt-oss-120b versus 3,073 chars in 195 s from
+local qwen2.5:7b — the local path is real but 65× slower and flatter).
+Verified live: `/api/bills/10/summary` → `groq_openai/gpt-oss-120b`, 904 words,
+TL;DR intact. Nothing is fabricated: any failure still returns the honest
+extractive fallback.
+
+**2. Every bill had `ministry = "Unknown"` (140/140).** Summaries printed
+"Ministry: Unknown" and ministry filtering was empty. **Correction to what was
+believed earlier in this session:** PRS *does* publish the ministry — the field
+is `div.field-name-field-ministry` and reads e.g. `Ministry: Finance`; the
+scraper simply never wrote it to the database. So this was a scraping gap, not an
+inference problem. `services/ministry_resolver.py` now resolves in tiers: PRS
+bill page (`ministry_source='prs'`, confidence 1.0) → the bill's own text
+(`'bill_text'`) → Groq choosing from a closed list of real Union ministries
+(`'llm_inferred'`), which may answer "Unknown" but may never invent a ministry.
+Provenance is stored, not hidden: new columns `ministry_source`,
+`ministry_confidence`, `ministry_evidence`; the API adds `ministry_source` and
+`ministry_inferred`; summary headers label a derived value "(inferred from the
+Bill's text)" / "(inferred by AI)". A scraped value is never overwritten by a
+derived one. Result: **`coverage now: prs=140`, zero Unknown**, and the LLM tier
+was not needed at all for the current corpus (it stays for future bills PRS
+omits, which is exactly what the user asked for). PRS's short taxonomy labels are
+normalised to full names for display ("Personnel, Grievances and Pensions" →
+`Ministry of Personnel, Public Grievances and Pensions`) with the raw scraped
+string kept in `ministry_evidence`.
+
+**New scripts** (all idempotent, all safe to re-run):
+`scripts/maintenance/add_ministry_source_columns.py` (additive migration),
+`scripts/setup/enrich_ministries.py` (`--offline`, `--bill-ids`, `--refresh`,
+`--dry-run`, `--renormalise`, `--list`),
+`scripts/maintenance/regenerate_summaries.py` (rebuilds cached summaries through
+the real API code path; `--only-stale` targets non-generative rows).
+
+**Gotchas for the next session.**
+- Summaries are **cached** in `bill_summaries` and served forever, so a bill
+  summarised before this fix keeps showing the extractive stub — use
+  `regenerate_summaries.py` to refresh, and pre-generate the demo bills before
+  presenting so a live 429 can never surface.
+- The Groq free tier rate-limits bursts: an early batch of 5 regenerations got
+  two 429s. Retries + `Retry-After` + ~3 s spacing handle it; don't hammer it.
+- Two timeline payloads use different field names (A4 in TASKS.md): `bill.timeline
+  .events[]` uses `date`/`event`; `/lifecycle` uses `event_date`/`event_type`.
+  A component reading the wrong pair shows an empty timeline on good data.
+- The backend must be **restarted** for these changes to reach the running app
+  (done: :5000 is now serving the new code).
+- Still open from D3: `agents/orchestrator.py:308`, `routes.py:1702` and
+  `scripts/ml_pipeline/*` still name the dead `groq/compound` model.
+
+---
+
 ## 2026-09-29 — Session: overnight CTO pass 1 (acts loop) — P0 data spine completed, verified, committed
 
 **Intended:** One pass of the multi-pass overnight CTO run for Acts tracking
@@ -57,6 +128,58 @@ real, commit it, write the trail, end the pass.
   :5000 — check who listens before starting another (stale-server incident
   above).
 - Full details and evidence: docs/cto-report-acts.md, pass 1 section.
+
+---
+
+## 2026-09-29 (later) — Overnight run: what actually happened (corrected diagnosis)
+
+**Where the Acts work stands.** Pass 1 of the loop landed P0 completely: `Act`, `BillActLink`,
+`LifecycleEvent` in `models.py`; `PRSActsScraper`, `act_linker`, `sync_acts`, `verify_acts`,
+`migrate_acts_tables`; `/api/acts`, `/api/acts/<act_id>`, `/api/bills/<bill_id>/lifecycle`; the
+fabricated `introduction_date + 30 days` timeline deleted. It used 3 read-only nemotron
+subagents (PRS cross-check, code review, live API curls), re-verified their claims itself,
+fixed two real findings (`Act.short_title` was NULL on all 50 rows; `source_url` not refreshed
+on update), and committed (`37ce2cd`, `1b4aff4`, `72326a3`). DB: **50 acts / 406 lifecycle
+events / 57 links** (32 verified, 25 candidate). `verify_acts.py` → 6/6 PASS, 0 unsourced,
+0 estimated. PRS spot-check on bill 26 matched exactly.
+
+**Then passes 2–4 burned six hours and committed nothing.** They were NOT stalled: they made
+42/43/40 tool calls spanning ~115 minutes each of a 120-minute cap, and were killed mid-file.
+The cause was pacing, not the provider — each model call on this endpoint takes ~1–2 minutes
+(measured: 64s for a two-token reply on glm-5.3-flash, 105s on deepseek-v4.1-flash), so a
+2-hour pass buys only 40–60 calls, and they had no commit discipline. Their uncommitted work
+(models.py/routes.py edits adding the bill `act` block and the batched verified-link lookup for
+the "Enacted as" chip, plus a `_ResilientStdout` guard so a dead Windows console handle can't
+500 the bill route) was rescued into `d377e87` and compiles; it is WIP, unverified end-to-end.
+
+**Correction — I briefly blamed the provider and that was wrong.** A scripted probe reported
+`HTTP 500 "Missing request extension: Authorization"` for every model on nvidia, which looked
+like an outage. The probe was reading the **redacted `api_key` from `config.yaml`**; the real
+credential is `NVIDIA_API_KEY` in `.env`. With the real key nvidia answers fine. The probe
+(`~/AppData/Local/hermes/scripts/cto_acts_probe.py`) now reads `.env` first, requires ~400
+tokens (glm-5.3-flash is a reasoning model — a 16-token probe returns 200 with empty content and
+looks like a dead endpoint), and takes the provider as a parameter.
+
+**OpenRouter is configured but not a viable fallback for a full pass.** It answers small probes
+and then returns `HTTP 402: This request requires more credits ... can only afford 24164` of the
+requested 131072 output tokens. Fine for a probe, useless for an agent pass.
+
+**What was changed to stop this recurring.**
+- `docs/CTO_ACTS_PROMPT.md`: the pass must now commit after every coherent unit and is told
+  explicitly to pace for 1–2 minute calls — a pass ending with nothing committed is a failed pass.
+- `delegation.oneshot_max_children=8`, `max_spawn_depth=2` (was 2 and 1) so a pass can fan out;
+  model split: pass = `z-ai/glm-5.3-flash`, children = `nvidia/nemotron-3-ultra-550b-a55b`
+  (`delegation.model`/`delegation.provider=nvidia`), both pinned in the launcher.
+- Loop relaunched at 22:53 (5 passes, 2h cap, 2-minute gap — passes chain instead of idling).
+- `cto-acts-watchdog.sh` exists (probes until the provider is healthy, then launches the loop)
+  but is **not running** — it is only needed if a genuine provider outage is suspected.
+
+**Next session should know:** read `docs/cto-report-acts.md` first (pass 1's report is complete
+and detailed). P1 frontend was still outstanding as of this entry: `ActsPage.jsx`,
+`ActDetailPage.jsx`, `LifecycleTimeline.jsx`, the BillCard "Enacted as" chip, `/acts` route +
+sidebar entry, `api.js` helpers — then `npm run build`. Criterion 6 (frontend build) was the only
+unmet acceptance criterion when pass 1 closed. Review `d377e87` before merging: it is rescued
+WIP, not verified work. Nothing is pushed; branch `feature/acts-tracking`.
 
 ---
 

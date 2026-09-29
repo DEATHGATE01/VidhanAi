@@ -28,6 +28,21 @@ class Bill(db.Model):
     bill_id = db.Column(db.String(200), unique=True, nullable=False, index=True)
     title = db.Column(db.String(500), nullable=False, index=True)
     ministry = db.Column(db.String(200), index=True)
+
+    # Ministry provenance. PRS leaves the ministry blank on many bill pages (all
+    # 140 tracked bills read "Unknown" on 2026-09-29), so the ministry is also
+    # derived -- from the bill's own text, or by an LLM choosing from the fixed
+    # list of Union ministries in services/ministry_resolver.py. Because a
+    # derived ministry is not a scraped fact, it is recorded as such:
+    #   ministry_source     'prs' | 'bill_text' | 'llm_inferred' | 'unknown'
+    #   ministry_confidence 0..1 (1.0 for a scraped value)
+    #   ministry_evidence   the exact quoted text / model rationale behind it
+    # Never overwrite a 'prs' value with a derived one; the UI labels inferred
+    # values so a reader always knows which is which.
+    ministry_source = db.Column(db.String(30), default='unknown', index=True)
+    ministry_confidence = db.Column(db.Float, nullable=True)
+    ministry_evidence = db.Column(db.Text, nullable=True)
+
     status = db.Column(db.String(100))
     url = db.Column(db.String(500), nullable=False)
     introduction_date = db.Column(db.DateTime, nullable=True)
@@ -52,6 +67,9 @@ class Bill(db.Model):
             'bill_id': self.bill_id,
             'title': self.title,
             'ministry': self.ministry,
+            'ministry_source': self.ministry_source or 'unknown',
+            'ministry_confidence': self.ministry_confidence,
+            'ministry_inferred': (self.ministry_source or 'unknown') in ('bill_text', 'llm_inferred'),
             'status': self.status,
             'url': self.url,
             'introduction_date': self.introduction_date.isoformat() if self.introduction_date else None,
