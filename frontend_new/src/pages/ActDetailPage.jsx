@@ -189,7 +189,7 @@ export default function ActDetailPage() {
             ) : (
               <span
                 style={{ color: 'var(--text-3)', fontStyle: 'italic' }}
-                title="PRS does not publish Act numbers; India Code (the authoritative source) is unreachable from this deployment"
+                title="Act numbers are not on PRS; India Code is the authoritative source for Act numbers and assent dates"
               >
                 Not published by PRS
               </span>
@@ -217,7 +217,7 @@ export default function ActDetailPage() {
             ) : (
               <span
                 style={{ color: 'var(--text-3)', fontStyle: 'italic' }}
-                title="Assent date is not on PRS; India Code (the authoritative source) is unreachable from this deployment"
+                title="Assent dates are not on PRS bill pages; India Code is the authoritative source for Act numbers and assent dates"
               >
                 Not published by PRS
               </span>
@@ -230,7 +230,7 @@ export default function ActDetailPage() {
             ) : (
               <span
                 style={{ color: 'var(--text-3)', fontStyle: 'italic' }}
-                title="Commencement date is not on PRS; India Code (the authoritative source) is unreachable from this deployment"
+                title="Commencement dates are not on PRS bill pages; India Code is the authoritative source for Act numbers and assent dates"
               >
                 Not published by PRS
               </span>
