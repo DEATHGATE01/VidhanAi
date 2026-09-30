@@ -130,8 +130,16 @@ export default function ExplorePage() {
     .filter((b) => !activeFilters.dateFrom || (b.introduction_date && new Date(b.introduction_date) >= new Date(activeFilters.dateFrom)))
     .filter((b) => !activeFilters.dateTo || (b.introduction_date && new Date(b.introduction_date) <= new Date(activeFilters.dateTo)))
 
+  // Default order is the backend's recency order, whose first page is all
+  // unenacted newest bills — surface bills with a VERIFIED Act link first so
+  // the "Enacted as" chip (the Bill→Act lifecycle) is visible without
+  // searching. Enacted-first is derived only from acts_by_bill, which the
+  // backend fills from verified links; a candidate match never reaches here.
+  const isEnacted = (b) => Boolean(actsByBill[b.id])
+  const enactedCount = bills.filter(isEnacted).length
   const sorted = [...filtered]
-  if (sortBy === 'date_desc') sorted.sort((a, b) => new Date(b.introduction_date || 0) - new Date(a.introduction_date || 0))
+  if (sortBy === 'relevance') sorted.sort((a, b) => (isEnacted(b) ? 1 : 0) - (isEnacted(a) ? 1 : 0))
+  else if (sortBy === 'date_desc') sorted.sort((a, b) => new Date(b.introduction_date || 0) - new Date(a.introduction_date || 0))
   else if (sortBy === 'date_asc') sorted.sort((a, b) => new Date(a.introduction_date || 0) - new Date(b.introduction_date || 0))
   else if (sortBy === 'title_asc') sorted.sort((a, b) => (a.title || '').localeCompare(b.title || ''))
   else if (sortBy === 'title_desc') sorted.sort((a, b) => (b.title || '').localeCompare(a.title || ''))
@@ -200,6 +208,7 @@ export default function ExplorePage() {
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center', marginBottom: '1.25rem' }}>
         <span style={{ color: 'var(--text-1)', fontSize: '0.85rem' }}>
           <strong>{sorted.length}</strong> bill{sorted.length === 1 ? '' : 's'}
+          {enactedCount > 0 && <span style={{ color: 'var(--ok)' }}> · {enactedCount} enacted as Acts (verified)</span>}
           {selectedBills.size > 0 && <span style={{ color: 'var(--ok)' }}> · {selectedBills.size} selected</span>}
         </span>
 
