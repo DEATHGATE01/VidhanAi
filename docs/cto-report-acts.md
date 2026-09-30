@@ -221,3 +221,60 @@ NULL by design until a browser fallback works (P2).
 Left untracked on purpose: `review_report.json` (scratch artifact the
 code-reviewer child wrote to the repo root this pass — not part of the
 deliverable; delete or keep at the user's discretion).
+
+---
+
+## Passes 2–5 — 2026-09-30 — reconstructed by the parent session
+
+**Why this section is written by the parent:** passes 2–5 each ran to their 2-hour
+cap (rc=124) and committed their work, but none appended its own report section,
+so the trail the charter asks for was missing. This is reconstructed from the
+commits and from checks the parent re-ran itself — it is not the passes' own words.
+
+**What they delivered (branch `feature/acts-tracking`):**
+- `5e68837` **P1 — the Acts UI.** `pages/ActsPage.jsx`, `pages/ActDetailPage.jsx`,
+  `components/LifecycleTimeline.jsx`, the BillCard "Enacted as" chip, `/acts` +
+  `/acts/:actId` routes, sidebar entry, `services/api.js` additions.
+- `b315dcc` **A5 fixes.** Candidate links badge as "Candidate N% — not confirmed"
+  with a section legend; unavailable fields render "Not published by PRS"
+  instead of `—`/`unknown`; the status filter is dropped when every act shares
+  one value.
+- `f49befa` **P2 — `/api/analytics/lifecycle-stats`**, bill→Act conversion
+  analytics (per-ministry links and verified-link counts).
+- `695e7fc` **Enacted-first ordering on `/explore`**, so the Bill→Act lifecycle is
+  visible on page 1 rather than only after a search.
+
+**Corrections to the pass-1 text above (both verified 2026-09-30):**
+- "India Code (`indiacode.nic.in`) remains unreachable from this machine" is no
+  longer true. `indiacode.nic.in` answers in ~0.3 s and its DSpace REST API
+  (`indiacode.gov.in/server/api/discover/search/objects`) works. Pass 5 wrote
+  `scripts/maintenance/enrich_indiacode.py` for this; the parent verified and ran
+  it: **17/50 acts now carry an Act number and assent date**, each on an exact
+  three-key match (CENTRAL + exact `dc.title` + `dc.date.act_year`) with the India
+  Code item-record URL as provenance; the other 33 stay NULL. Two values were
+  confirmed outside the system (DPDP Act 2023 = No. 22 of 2023, assent 11 Aug
+  2023; Anusandhan NRF Act 2023 = No. 25 of 2023, assent 12 Aug 2023 per the DST
+  PDF of the Act). A PRS re-sync no longer clobbers that provenance (`sync_acts.py`).
+- "criterion 6 is pending P1" — P1 landed; criterion 6 is now green.
+
+**Acceptance criteria (§10 of the plan), re-verified by the parent:**
+1. `py_compile` clean on every changed `.py` — **PASS** (9 files incl. all new ones).
+2. `sync_acts.py --limit 50` reports acts/events/links — **met**, evidence from
+   pass 1 plus the live counts `verify_acts.py` reads (50 acts / 406 events / 57
+   links). Not re-run on 2026-09-30: it is idempotent, and re-fetching 50 PRS
+   pages hours before the demo buys nothing.
+3. `GET /api/acts` non-empty and `GET /api/acts/<act_id>` returns a linked bill —
+   **PASS** (`total: 50`; the DPDP Act page renders "Bills This Came From (1)").
+4. `GET /api/bills/<id>/lifecycle` for 6 `Passed` bills — **PASS**: every bill
+   returned `all_sourced: true`, `estimated=0`, `missing_source_url=0`.
+5. `grep -rn "timedelta(days=30)" backend/` — **PASS** (empty).
+6. `npm run build` passes and `/acts` renders rows — **PASS** (2041 modules,
+   1.03 s; browser: 50 acts with counts and filters).
+7. `verify_acts.py` — **PASS 6/6** (50 acts, 406 events / 0 unsourced / 0
+   estimated, 32 verified + 25 candidate links, 0 without evidence, linkage
+   resolves).
+
+**Not done / open:** `A7` (India Code's per-Act `ministry_name` as a second
+ministry signal) is recorded but unimplemented; D3's agent and ml_pipeline paths
+still name the dead `groq/compound` model; `review_report.json` remains an
+untracked scratch artifact at the repo root.
