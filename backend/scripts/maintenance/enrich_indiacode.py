@@ -125,7 +125,17 @@ def discover_india_code_record(session, act_title: str, act_year):
         ic_year = (_first(md, "dc.date.act_year") or "").strip()
         if str(act_year or "") != ic_year:
             continue
-        item_url = ((idx_obj.get("_links", {}).get("indexableObject", {}) or {}).get("href")
+        # Provenance URL for the matched record. The canonical link lives on the
+        # OUTER search object (_links.indexableObject.href ->
+        # /server/api/core/items/<uuid>), not on the embedded object, so reading
+        # _links off idx_obj found nothing and every act silently stored the bare
+        # host -- which is not provenance anyone can check. Prefer the API item
+        # URL, then the human handle URL, and only fall back to the host.
+        uuid = idx_obj.get("uuid")
+        handle = (idx_obj.get("handle") or "").strip()
+        item_url = (((obj.get("_links") or {}).get("indexableObject") or {}).get("href")
+                    or (BASE + "/server/api/core/items/" + uuid if uuid else None)
+                    or (BASE + "/handle/" + handle if handle else None)
                     or BASE + "/")
         return {"metadata": md, "item_url": item_url}, item_url
     return None, f"no exact CENTRAL/title/year match among {len(objects)} hit(s)"
