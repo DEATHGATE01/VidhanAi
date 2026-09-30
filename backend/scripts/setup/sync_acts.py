@@ -42,18 +42,24 @@ def upsert_acts_from_prs(scraper, limit=None, dry_run=False):
         short_title = normalize(item['title'])[:300]
         existing = Act.query.filter_by(act_id=act_id).first()
         if existing:
+            # India Code enrichment (enrich_indiacode.py) repoints source/source_url
+            # to the India Code item record for enriched acts; a PRS re-sync must
+            # never clobber that provenance back to 'prs_acts'.
+            enriched = existing.source == 'indiacode'
             changed = (existing.title != item['title']
                        or existing.year != item['year']
                        or existing.pdf_url != item['pdf_url']
-                       or existing.source_url != item['source_url']
                        or existing.short_title != short_title)
-            if changed and not dry_run:
+            url_changed = (not enriched
+                           and existing.source_url != item['source_url'])
+            if (changed or url_changed) and not dry_run:
                 existing.title = item['title']
                 existing.year = item['year']
                 existing.pdf_url = item['pdf_url']
-                existing.source = 'prs_acts'
-                existing.source_url = item['source_url']
                 existing.short_title = short_title
+                if not enriched:
+                    existing.source = 'prs_acts'
+                    existing.source_url = item['source_url']
             continue
 
         new += 1
