@@ -69,6 +69,19 @@ export default function ActsPage() {
   const years = [...new Set(acts.map((a) => a.year).filter(Boolean))].sort((a, b) => b - a)
   const statuses = [...new Set(acts.map((a) => a.status).filter((s) => s && s !== 'unknown'))].sort()
 
+  // Human labels and colors for the machine codes the API stores
+  // ('in_force' -> 'In force'). Same mapping as ActDetailPage: a badge that
+  // reads "in_force" in a neutral grey teaches a reviewer to distrust the
+  // table, and the Act detail page already renders these as words.
+  const STATUS_LABELS = { in_force: 'In force', repealed: 'Repealed', spent: 'Spent', unknown: 'Unknown' }
+  const statusLabel = (s) => STATUS_LABELS[(s || '').toLowerCase()] || s
+  const statusBadgeClass = (s) => {
+    const v = (s || '').toLowerCase()
+    if (v === 'active' || v === 'in_force') return 'badge-emerald'
+    if (v === 'repealed' || v === 'withdrawn' || v === 'lapsed') return 'badge-rose'
+    return 'badge-slate'
+  }
+
   // Client-side filtering
   const kw = searchKeyword.trim().toLowerCase()
   const filtered = acts
@@ -243,13 +256,13 @@ export default function ActsPage() {
                     </td>
                     <td style={{ padding: '0.85rem 1rem', textAlign: 'center', verticalAlign: 'middle' }}>
                       {act.status && act.status !== 'unknown' ? (
-                        <span className={`badge ${act.status === 'active' ? 'badge-emerald' : act.status === 'repealed' ? 'badge-rose' : 'badge-slate'}`}>
-                          {act.status}
+                        <span className={`badge ${statusBadgeClass(act.status)}`}>
+                          {statusLabel(act.status)}
                         </span>
                       ) : (
                         <span
                           style={{ color: 'var(--text-3)', fontStyle: 'italic', fontSize: '0.8rem' }}
-                          title="PRS does not publish a status for this Act"
+                          title="No source reachable so far publishes an in-force status for this Act — see the Act's detail page for the search trail"
                         >
                           Not published
                         </span>
