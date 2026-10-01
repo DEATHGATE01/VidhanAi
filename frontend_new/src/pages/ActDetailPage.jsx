@@ -85,11 +85,39 @@ export default function ActDetailPage() {
   const getStatusBadgeClass = (status) => {
     if (!status) return 'badge-slate'
     const s = status.toLowerCase()
-    if (s === 'active' || s === 'passed' || s === 'assented') return 'badge-emerald'
+    if (s === 'active' || s === 'passed' || s === 'assented' || s === 'in_force') return 'badge-emerald'
     if (s === 'repealed' || s === 'withdrawn' || s === 'lapsed') return 'badge-rose'
     if (s === 'pending' || s === 'introduced' || s === 'referred') return 'badge-amber'
     return 'badge-slate'
   }
+
+  // Human labels for the status codes the API stores ('in_force' -> 'In force').
+  const STATUS_LABELS = { in_force: 'In force', repealed: 'Repealed', spent: 'Spent', unknown: 'Unknown' }
+  const statusLabel = (s) => STATUS_LABELS[(s || '').toLowerCase()] || s
+
+  // Which authority a value came from. The header used to hardcode "Source
+  // (PRS)" for every act, which mislabelled India Code URLs as PRS ones.
+  const SOURCE_LABELS = { prs_acts: 'PRS India', prs_act_pdf: 'PRS India', indiacode: 'India Code' }
+  const sourceLabel = (s) => SOURCE_LABELS[s] || s || 'source'
+
+  // A missing detail must never render as a bare "not published": the backend
+  // stores which sources were searched for it and when (acts.lookup_note /
+  // details_checked_at), so the field says a search happened and the trail is
+  // shown under the field row. See docs/CTO_V2.md §2.
+  const MissingDetail = () => (
+    <span
+      style={{ color: 'var(--text-3)', fontStyle: 'italic' }}
+      title={act?.lookup_note || 'No source was reachable'}
+    >
+      Not found{act?.details_checked_at ? ' — sources checked' : ''}
+    </span>
+  )
+
+  const missingDetails = [
+    !act?.act_number && 'Act number',
+    !(act?.status && act.status !== 'unknown') && 'in-force status',
+    !act?.commencement_date && 'commencement date',
+  ].filter(Boolean)
 
   if (loading) {
     return (
@@ -187,27 +215,17 @@ export default function ActDetailPage() {
                 {act.act_number}
               </span>
             ) : (
-              <span
-                style={{ color: 'var(--text-3)', fontStyle: 'italic' }}
-                title="Act numbers are not on PRS; India Code is the authoritative source for Act numbers and assent dates"
-              >
-                Not published by PRS
-              </span>
+              <MissingDetail />
             )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <span style={{ color: 'var(--text-3)' }}>Status:</span>
             {act.status && act.status !== 'unknown' ? (
               <span className={getStatusBadgeClass(act.status)}>
-                {act.status}
+                {statusLabel(act.status)}
               </span>
             ) : (
-              <span
-                style={{ color: 'var(--text-3)', fontStyle: 'italic' }}
-                title="PRS does not publish a status for this Act"
-              >
-                Not published by PRS
-              </span>
+              <MissingDetail />
             )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
@@ -215,12 +233,7 @@ export default function ActDetailPage() {
             {act.assent_date ? (
               formatDate(act.assent_date)
             ) : (
-              <span
-                style={{ color: 'var(--text-3)', fontStyle: 'italic' }}
-                title="Assent dates are not on PRS bill pages; India Code is the authoritative source for Act numbers and assent dates"
-              >
-                Not published by PRS
-              </span>
+              <MissingDetail />
             )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
@@ -228,15 +241,43 @@ export default function ActDetailPage() {
             {act.commencement_date ? (
               formatDate(act.commencement_date)
             ) : (
-              <span
-                style={{ color: 'var(--text-3)', fontStyle: 'italic' }}
-                title="Commencement dates are not on PRS bill pages; India Code is the authoritative source for Act numbers and assent dates"
-              >
-                Not published by PRS
-              </span>
+              <MissingDetail />
             )}
           </div>
         </div>
+
+        {/* Where these details came from — or where we looked and did not find
+            them. Makes "unknown" auditable instead of an excuse. */}
+        {(missingDetails.length > 0 || act.evidence || act.lookup_note) && (
+          <details style={{ marginTop: '0.9rem', fontSize: '0.82rem', color: 'var(--text-3)' }}>
+            <summary style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+              <Info size={14} />
+              {missingDetails.length > 0
+                ? `${missingDetails.join(', ')} not found in any source — see the ${act.source ? sourceLabel(act.source) : 'source'} search`
+                : `Sourced from ${act.source ? sourceLabel(act.source) : 'the source'}`}
+            </summary>
+            <div style={{ marginTop: '0.5rem', lineHeight: 1.55, maxWidth: '70ch' }}>
+              {act.details_checked_at && (
+                <p style={{ margin: '0 0 0.35rem' }}>
+                  <strong style={{ color: 'var(--text-2)' }}>Last checked:</strong>{' '}
+                  {formatDate(act.details_checked_at)}
+                </p>
+              )}
+              {act.lookup_note && (
+                <p style={{ margin: '0 0 0.35rem' }}>
+                  <strong style={{ color: 'var(--text-2)' }}>Sources consulted:</strong>{' '}
+                  {act.lookup_note}
+                </p>
+              )}
+              {act.evidence && (
+                <p style={{ margin: 0 }}>
+                  <strong style={{ color: 'var(--text-2)' }}>Evidence for the values above:</strong>{' '}
+                  {act.evidence}
+                </p>
+              )}
+            </div>
+          </details>
+        )}
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '1rem' }}>
           {act.pdf_url && (
@@ -258,7 +299,7 @@ export default function ActDetailPage() {
               className="btn btn-ghost"
               style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.82rem' }}
             >
-              <ExternalLink size={16} /> Source (PRS)
+              <ExternalLink size={16} /> Source ({sourceLabel(act.source)})
             </a>
           )}
         </div>

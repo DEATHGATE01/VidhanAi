@@ -412,9 +412,18 @@ class Act(db.Model):
     assent_date = db.Column(db.DateTime)                 # only if sourced
     commencement_date = db.Column(db.DateTime)           # only if sourced
     status = db.Column(db.String(50), default='unknown')  # in_force | repealed | spent | unknown
-    source = db.Column(db.String(50))                    # 'prs_acts' | 'indiacode'
+    source = db.Column(db.String(50))                    # 'prs_acts' | 'indiacode' | 'prs_act_pdf'
     source_url = db.Column(db.String(500))
     pdf_url = db.Column(db.String(500))
+    # Exact text each sourced value came from (the Gazette line, the India Code
+    # metadata field). Stored so a reader can check the claim instead of trusting
+    # the pipeline.
+    evidence = db.Column(db.Text)
+    # Which sources were searched for a missing value, when, and what each said.
+    # This is what lets the UI show "checked India Code, the Act PDF and the web
+    # on <date>" rather than a bare "Not published by PRS".
+    lookup_note = db.Column(db.Text)
+    details_checked_at = db.Column(db.DateTime)
     full_text = db.Column(db.Text)
     date_scraped = db.Column(db.DateTime, default=datetime.utcnow)
     last_updated = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -440,6 +449,9 @@ class Act(db.Model):
             'source': self.source,
             'source_url': self.source_url,
             'pdf_url': self.pdf_url,
+            'evidence': self.evidence,
+            'lookup_note': self.lookup_note,
+            'details_checked_at': self.details_checked_at.isoformat() if self.details_checked_at else None,
             'date_scraped': self.date_scraped.isoformat() if self.date_scraped else None,
             'last_updated': self.last_updated.isoformat() if self.last_updated else None
         }
