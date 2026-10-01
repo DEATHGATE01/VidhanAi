@@ -340,3 +340,30 @@ optional pattern as the per-bill lifecycle fetch). Committed as `378244d`.
 **Why #7 and not #4/#5/#6:** #4 has nothing to verify (DB holds 0 inferred
 ministries — 140 prs / 0 inferred, checked live); #5 and #6 are M-effort
 multi-source work beyond a single-pass budget. Both stay in the backlog.
+
+---
+
+## Parent note — 2026-10-02 04:0x — salvaging the capped pass 2/2
+
+CTO-2's last pass hit the 45-minute cap mid-work and committed nothing, leaving
+`frontend_new/src/components/BillSummaryPanel.jsx` modified in the tree (backlog
+finding 6: name the summary state on screen). The work was sound — a first-open
+generation hint, a "not scraped yet" state rendered as information rather than a
+red error, and an amber badge labelling any rule-based extractive summary as not
+AI-generated — so the parent ran `npm run build` (exit 0), checked the badge's
+condition against served data (`/api/bills/59/summary` → `rule_based_extractive_v1`,
+condition true; `/api/bills/5/summary` → `groq_openai/gpt-oss-120b`, condition
+false), and committed it as `d104dee` rather than let it evaporate.
+
+Recorded honestly: the badge was verified by code condition + served data, not by
+screenshot — the `/explore` search box would not filter under automation, so the
+drawer could not be driven to bill 59. Backlog row 6 is marked fixed with that
+caveat.
+
+**Pattern worth naming:** three of CTO-2's six productive fixes now arrive as
+uncommitted work in a capped pass and are salvaged by the parent. The commit step
+is the one the agent reliably skips when time runs out — the prompt says "commit at
+step 4", but the agent evidently keeps working past it. The next process change
+should be mechanical rather than advisory: the launcher can commit the working tree
+itself at the cap (with a `wip:` commit and a note) so a capped pass can never
+leave verified work uncommitted.
