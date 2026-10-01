@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { Search, X, ExternalLink, FileText, Scale, ChevronLeft, ChevronRight } from 'lucide-react'
-import { getActs } from '../services/api'
+import { getActs, getLifecycleStats } from '../services/api'
 
 export default function ActsPage() {
   const [acts, setActs] = useState([])
@@ -10,6 +10,7 @@ export default function ActsPage() {
   const [searchKeyword, setSearchKeyword] = useState('')
   const [yearFilter, setYearFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [lifecycleStats, setLifecycleStats] = useState(null)
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 12
   const debounceRef = useRef(null)
@@ -32,6 +33,17 @@ export default function ActsPage() {
       .finally(() => {
         if (!cancelled) setLoading(false)
       })
+    return () => { cancelled = true }
+  }, [])
+
+  // Lifecycle stats for the strip below (CTO backlog #7). Optional enhancement:
+  // if the endpoint fails the strip simply doesn't render, like the
+  // per-bill lifecycle fetch on ActDetailPage.
+  useEffect(() => {
+    let cancelled = false
+    getLifecycleStats()
+      .then((data) => { if (!cancelled) setLifecycleStats(data) })
+      .catch(() => {})
     return () => { cancelled = true }
   }, [])
 
@@ -106,6 +118,52 @@ export default function ActsPage() {
           The law itself — tracked as first-class objects and linked to the Bills they came from. Source: PRS Legislative Research.
         </p>
       </header>
+
+      {/* Lifecycle stats strip (CTO backlog #7). Numbers in the project's mono
+          font; monospace numbers are a standing project convention for data. */}
+      {lifecycleStats && lifecycleStats.success && (
+        <section
+          className="glass-panel"
+          style={{ borderRadius: 16, padding: '1rem 1.25rem', marginBottom: '1.25rem', border: '1px solid var(--border)' }}
+          aria-label="Bill to Act lifecycle statistics"
+        >
+          <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-3)', marginBottom: '0.2rem' }}>Bill→Act links</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.15rem', fontWeight: 600, color: 'var(--text-1)' }}>
+                {lifecycleStats.total_links ?? 0}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-3)', marginBottom: '0.2rem' }}>Verified</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.15rem', fontWeight: 600, color: 'var(--ok)' }}>
+                {lifecycleStats.total_verified ?? 0}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-3)', marginBottom: '0.2rem' }}>Unverified (labelled on the Act page)</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.15rem', fontWeight: 600, color: 'var(--text-2)' }}>
+                {(lifecycleStats.total_links ?? 0) - (lifecycleStats.total_verified ?? 0)}
+              </div>
+            </div>
+            <div style={{ flex: 1, minWidth: 260 }}>
+              <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-3)', marginBottom: '0.3rem' }}>Verified links by year</div>
+              <div style={{ display: 'flex', gap: '0.9rem', flexWrap: 'wrap' }}>
+                {(lifecycleStats.by_year || []).map((y) => (
+                  <span key={y.year} style={{ fontSize: '0.82rem', color: 'var(--text-2)' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-1)' }}>{y.year}</span>
+                    {' '}<span style={{ fontFamily: 'var(--font-mono)', color: 'var(--ok)' }}>{y.verified_links}</span>
+                    <span style={{ color: 'var(--text-3)' }}>/{y.links}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+          <p style={{ margin: '0.6rem 0 0', fontSize: '0.75rem', color: 'var(--text-3)' }}>
+            How many bills have been confirmed as enacted into each Act (verified) vs. candidate matches awaiting confirmation. Source: this system's own verified/candidate links.
+          </p>
+        </section>
+      )}
 
       {/* Filter bar */}
       <section className="glass-panel" style={{ borderRadius: 16, padding: '1.25rem', marginBottom: '1.25rem' }} aria-label="Search and filter acts">

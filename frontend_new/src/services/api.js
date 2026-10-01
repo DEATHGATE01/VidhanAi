@@ -129,6 +129,14 @@ export const getSystemStats = async () => {
   return response.data
 }
 
+// GET /api/analytics/lifecycle-stats — Bill→Act link counts (total / verified /
+// by year / by ministry). Consumed by ActsPage's lifecycle strip; before this
+// was added no page read this endpoint (CTO backlog finding #7).
+export const getLifecycleStats = async () => {
+  const response = await api.get('/analytics/lifecycle-stats')
+  return response.data
+}
+
 // ============================================================================
 // MULTI-AGENT ORCHESTRATION (Phase 3)
 // ============================================================================
