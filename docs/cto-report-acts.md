@@ -278,3 +278,41 @@ commits and from checks the parent re-ran itself — it is not the passes' own w
 ministry signal) is recorded but unimplemented; D3's agent and ml_pipeline paths
 still name the dead `groq/compound` model; `review_report.json` remains an
 untracked scratch artifact at the repo root.
+
+---
+
+## Pass 7 (CTO-2) — 2026-10-02 — /acts renders Act status as words, not raw codes
+
+**What.** The `/acts` list rendered the raw machine code (`in_force`) in a
+neutral slate badge while the Act detail page already maps the same codes to
+"In force"/"Repealed"; and the "Not published" tooltip blamed PRS, which
+publishes no Act status at all. Fix (one file, `frontend_new/src/pages/ActsPage.jsx`):
+shared `STATUS_LABELS`/`statusBadgeClass` mapping mirroring `ActDetailPage.jsx`,
+and an accurate tooltip pointing to the Act's detail-page search trail.
+Committed as `eb0cbf8`.
+
+**Why this and not backlog rows 1/3.** Row 1 turned out already fixed: the working
+tree carries the full fix (`c6d944f`) — `MissingDetail` renders "Not found —
+sources checked" with the trail in a tooltip, plus an expandable
+"sources consulted / evidence" block (ActDetailPage.jsx:107-114, :249-279) —
+verified live before moving on. Row 3's premise ("unknown for all 50") is stale:
+the DB holds `in_force=17, unknown=33`, all sourced from India Code
+`dc.identifier.repealed` (re-probed live: 'false' on matched 2025 records,
+mapped at enrich_act_details.py:265-266). What survived of row 3 is exactly the
+user-visible mismatch this pass fixed.
+
+**Evidence (commands run this pass):**
+- `npm run build` → `✓ 2041 modules transformed. ✓ built in 457ms`
+- Browser on `/acts`: rows scanned 12 → 4 "In force" badges (`badge badge-emerald`),
+  8 "Not published" cells with the corrected tooltip, **0 raw machine codes**.
+- Regression: browser on `/acts/digital-personal-data-protection-act-2023` →
+  title, "Passed"/"Verified" badges and the search-trail block all render
+  ("commencement date not found in any source — see the India Code search").
+- Backend data untouched: `SELECT COALESCE(status,'(null)') ...` →
+  `in_force=17, unknown=33` (unchanged; no script was run against the DB).
+
+**New findings.** None this pass beyond the re-checks recorded in backlog row 11
+(rows 1 and 3 resolved); the open ledger (2, 4, 5, 6, 7) is unchanged.
+
+**A-row update:** TASKS.md A5 corrected — the "status filter dropped" note now
+records that known statuses render as words with real colors (`eb0cbf8`).
