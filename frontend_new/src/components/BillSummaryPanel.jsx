@@ -34,6 +34,7 @@ export default function BillSummaryPanel({ bill, onClose }) {
   const [summary, setSummary] = useState(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
+  const [fallback, setFallback] = useState(false)
   const [freq, setFreq] = useState('instant')
   const [subBusy, setSubBusy] = useState(false)
   const [subMsg, setSubMsg] = useState(null)
@@ -46,7 +47,15 @@ export default function BillSummaryPanel({ bill, onClose }) {
     setSummary(null)
     setSubMsg(null)
     getBillSummary(bill.id)
-      .then((data) => { if (!cancelled) setSummary(data?.summary || null) })
+      .then((data) => {
+        if (cancelled) return
+        setSummary(data?.summary || null)
+        // A saved rule-based summary (model_version `rule_based_*`) means no
+        // LLM backend produced output when it was generated — the extractive
+        // last-resort. Label it on screen so it never reads as an LLM answer.
+        const mv = data?.summary?.model_version || ''
+        setFallback(/rule_based_/.test(mv) || data?.summary?.summary_type === 'extractive')
+      })
       .catch((err) => { if (!cancelled) setLoadError(err?.response?.data?.error || err?.message || 'Could not load the summary.') })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
@@ -129,16 +138,37 @@ export default function BillSummaryPanel({ bill, onClose }) {
             <div style={{ textAlign: 'center', padding: '3rem 0' }}>
               <span className="spinner-ring" style={{ width: 30, height: 30, borderWidth: 3 }} />
               <p className="empty-state-text" style={{ marginTop: '1rem' }}>Generating the plain-English summary…</p>
+              <p style={{ margin: '0.4rem 0 0', fontSize: '0.72rem', color: 'var(--text-3)' }}>
+                This bill has no cached summary yet — the first open generates it (can take a few seconds).
+              </p>
             </div>
           )}
 
           {!loading && loadError && (
-            <p role="alert" style={{ color: 'var(--danger)', fontSize: '0.85rem', padding: '0.5rem 0' }}>⚠️ {loadError}</p>
+            /not available yet/i.test(loadError) ? (
+              // Content not scraped yet: not an error — the honest state is
+              // "unavailable, with a reason", not a red failure.
+              <div style={{ padding: '1.5rem 0' }}>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-2)' }}>
+                  No summary yet — the bill's full text has not been scraped, so there is nothing to summarize.
+                </p>
+                <p style={{ margin: '0.4rem 0 0', fontSize: '0.75rem', color: 'var(--text-3)' }}>
+                  Open the PRS page (top right) to read the bill directly; a summary appears here once the text is available.
+                </p>
+              </div>
+            ) : (
+              <p role="alert" style={{ color: 'var(--danger)', fontSize: '0.85rem', padding: '0.5rem 0' }}>⚠️ {loadError}</p>
+            )
           )}
 
           {!loading && !loadError && summary && (
             <>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '1rem' }}>
+                {fallback && (
+                  <span className="badge badge-amber" title="No LLM backend produced output when this was generated — it is a rule-based extraction from the bill text, not a model answer.">
+                    Rule-based extractive summary — not AI-generated
+                  </span>
+                )}
                 {summary.model_version && (
                   <span className="chip" title="Model that produced this summary">
                     <Cpu size={11} /> {summary.model_version}
