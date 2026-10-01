@@ -316,3 +316,27 @@ user-visible mismatch this pass fixed.
 
 **A-row update:** TASKS.md A5 corrected — the "status filter dropped" note now
 records that known statuses render as words with real colors (`eb0cbf8`).
+
+---
+
+## Pass 8 (CTO-2) — 2026-10-02 — lifecycle-stats surfaced on /acts (backlog #7)
+
+**What.** `/api/analytics/lifecycle-stats` (57 links, 32 verified) had no
+consumer — the Bill→Act link work was invisible to reviewers. Fix: a
+glass-panel strip above the filter bar on `/acts` (total / verified /
+unverified-labelled / verified-by-year, mono numbers) + `getLifecycleStats()` in
+`services/api.js`. Strip silently doesn't render if the endpoint fails (same
+optional pattern as the per-bill lifecycle fetch). Committed as `378244d`.
+
+**Evidence (commands run this pass):**
+- `curl /api/analytics/lifecycle-stats` → `total_links: 57, total_verified: 32`,
+  by_year 2026 6/8, 2025 12/23, 2024 2/5, 2023 12/21 (sums check out).
+- `npm run build` → exit 0 (chunk-size warning pre-existing).
+- Browser on `/acts` → strip renders "BILL→ACT LINKS 57 / VERIFIED 32 /
+  UNVERIFIED 25 / 2026 6/8, 2025 12/23, 2024 2/5, 2023 12/21" — matches the API
+  exactly (57−32=25 ✓).
+- Regression: table below unaffected — 12 rows, 4 "In force" badges, h1 "Acts".
+
+**Why #7 and not #4/#5/#6:** #4 has nothing to verify (DB holds 0 inferred
+ministries — 140 prs / 0 inferred, checked live); #5 and #6 are M-effort
+multi-source work beyond a single-pass budget. Both stay in the backlog.
