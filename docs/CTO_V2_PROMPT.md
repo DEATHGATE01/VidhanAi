@@ -13,33 +13,45 @@ The app runs at `http://localhost:5173` (frontend) against
 2026-09-30 09:00; restart the backend (`cd backend && ./.venv/Scripts/python.exe
 app.py`) if you change backend files, and check the port is not already held.
 
-## Your job this pass
+## Your job this pass — ONE objective, shipped
 
-**1. Dogfood before you do anything else.** You have a browser and the API. Act
-like an examiner who has 10 minutes and a grudge:
+You have a 45-minute budget and you will be killed at the end of it. The previous
+six passes failed by treating a pass as a survey: they dogfooded, wrote findings,
+started fixes, ran out of time, and committed nothing. A pass is now a **sprint
+with one deliverable**. Work in this order and stop when step 6 is done:
 
-- Walk `/explore` → click a bill → follow its "Enacted as" chip → the Act page →
-  back to `/acts` → open a different Act. Read every field on screen.
-- Query the API directly for the same rows
-  (`/api/acts?per_page=50`, `/api/acts/<act_id>`, `/api/bills/<id>`,
-  `/api/bills/<id>/lifecycle`, `/api/bills/<id>/summary`).
-- Compare screen against API against database. Anything shown as empty,
-  "unknown", "—", "Not published", "N/A", or obviously wrong is **your** finding.
+1. **(2 minutes) Choose ONE.** Read `docs/CTO_BACKLOG.md` and pick the highest-value
+   open finding you are confident you can fix, verify and commit inside 20 minutes.
+   Prefer a small correctness or honesty fix over anything large. If the backlog has
+   nothing you can finish, dogfood the app for 5 minutes and add the first concrete
+   finding you see, then fix that one.
+2. **(20 minutes) Fix it.** Not two things — one. If you notice other problems while
+   working, add them to `docs/CTO_BACKLOG.md` and move on; they are for future passes.
+3. **(5 minutes) Verify it** with a real command whose output you paste: a build, a
+   curl, a browser check, a before/after query. Never claim a fix without output.
+4. **(3 minutes) Commit it now** — explicit paths, Conventional Commit subject and a
+   body saying what changed, why, and how it was verified. Do not wait until the end
+   of the pass to commit: the commit is the deliverable, and an uncommitted fix does
+   not exist.
+5. **(3 minutes) Record it** — append two or three lines to `docs/cto-report-acts.md`
+   (what, why, the evidence), and update the finding's row in
+   `docs/CTO_BACKLOG.md` (status, fixed in commit). Update `TASKS.md` if the change
+   belongs to an `A*` row.
+6. **Stop.** Do not start a second fix. Do not keep exploring. End the pass with the
+   commit in place. (Optional, only if the app is broken by your change: fix that,
+   commit that, and say so.)
 
-**2. Apply charter §2 to every placeholder you find.** Chase it through the
-primary document, then an authoritative database, then the open web
-(two-source rule). Either source it — with `evidence` — or store a search trail
-(`lookup_note` + `checked_at`) and surface that instead of a bare "unknown".
-Do not stop at "PRS doesn't publish it".
+If — and only if — you finish all six steps with more than 15 minutes left, repeat
+the cycle once on the next backlog item.
 
-**3. Record at least 3 new findings in `docs/CTO_BACKLOG.md`**, observed with an
-exact command or URL, ranked. Then fix the highest-value ones you can verify in
-this pass. Do not ask the operator what to prioritise — that is your call.
+## Honesty rules while you work
 
-**4. Keep the pipeline honest while you work.** Never invent a value; every
-derived field carries provenance; summaries carry their `model_version`; a field
-you cannot source stays NULL with a reason. If you add a lookup, audit it with a
-`--dry-run` first and check a matched value against an outside source.
+Never invent a value; every derived field carries provenance; summaries carry their
+`model_version`; a field you cannot source stays NULL with a reason. If you add a
+lookup, audit it with a `--dry-run` first and verify a matched value against an
+outside source. Do not break the reviewer-facing surfaces (`/explore`, `/acts`, the
+bill pages, the timeline, the API): run `cd frontend_new && npm run build` before
+committing frontend changes.
 
 ## Rules of engagement (the traps that cost CTO-1 its passes)
 
@@ -54,9 +66,12 @@ you cannot source stays NULL with a reason. If you add a lookup, audit it with a
   you can finish and prove inside that budget rather than a bigger one you cannot.
 - **Write the report as you go, not at the end.** After EVERY verified fix, append
   two or three lines to `docs/cto-report-acts.md` (what, why, the command output).
-  Your transcript now survives the kill at `~/AppData/Local/hermes/scripts/cto2-pass-<n>.log`,
-  but a killed pass still cannot write anything after it dies — so nothing may be
-  left until the last minutes.
+  A killed pass leaves **nothing** behind: `hermes -z` prints only its final answer,
+  so there is no live transcript to recover (`PYTHONUNBUFFERED=1` was tried on
+  2026-10-02 and the per-pass file stayed at 0 bytes; `logs/agent.log` records only
+  the interactive session). The commit and the report line are the only durable
+  output a pass has, so they must be written before the budget runs out — never
+  "later in the pass".
 - Budget ~15–25 tool calls in a 45-minute pass; a model call takes 1–2 minutes. Do
   not start something long after minute 25.
 - One writer per file per pass; partition before spawning; ≤4 children a batch.
@@ -72,12 +87,10 @@ you cannot source stays NULL with a reason. If you add a lookup, audit it with a
 
 ## Finish the pass
 
-1. Commit everything verified, on `feature/acts-tracking`, explicit paths only.
-2. Update `TASKS.md` (`A*` rows: status, files, date) and append a dated
-   `SESSION_LOG.md` entry.
-3. Append a dated section to `docs/cto-report-acts.md`: what you found, what you
-   fixed, the evidence **you** produced (pasted output), what you verified
-   yourself, what is next, what is blocked, what the next pass must not redo.
-4. Append your new findings to `docs/CTO_BACKLOG.md`.
-5. End the pass. Only create `<repo>/.cto-stop` if the surface is genuinely in a
-   state you would defend to a reviewer — and say so in the report.
+1. The commit is already made (step 4 of your job). Confirm `git log --oneline -1`
+   shows it and that `git status` has no uncommitted work you care about.
+2. The report line and the backlog row are already updated (steps 5). Confirm both
+   mention the commit hash.
+3. End the pass. Do **not** start another fix. Only create `<repo>/.cto-stop` if the
+   surface is genuinely in a state you would defend to a reviewer — and say so in
+   the report.
