@@ -528,11 +528,16 @@ def _format_header(title: str, ministry: str, status: str, introduction_date,
         parts.append("**Ministry:** Not stated by PRS  ")
     if status:
         parts.append(f"**Status:** {status}  ")
-    # Use introduction_date if available, otherwise fall back to date_scraped
-    display_date = introduction_date or date_scraped
-    if display_date:
+    # A real introduction date only. date_scraped is the moment THIS system
+    # fetched the bill, not a legislative fact: labelling it "Introduced:"
+    # printed e.g. "Introduced: August 18, 2026" on a 2023 bill (30 of 42
+    # cached summaries were written with that wrong year). When the date is
+    # unknown the line is omitted entirely — a missing line is honest, a
+    # mislabelled scrape is not. bills.introduction_date is backfilled from
+    # sourced lifecycle events by scripts/maintenance/backfill_introduction_dates.py.
+    if introduction_date:
         try:
-            dt = datetime.fromisoformat(str(display_date).replace("Z", "+00:00"))
+            dt = datetime.fromisoformat(str(introduction_date).replace("Z", "+00:00"))
             parts.append(f"**Introduced:** {dt.strftime('%B %d, %Y')}  ")
         except Exception:
             pass
