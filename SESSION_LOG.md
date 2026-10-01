@@ -536,3 +536,50 @@ aggregator; `/api/analytics/lifecycle-stats` is still unbuilt into any UI; 98
 bills still generate summaries live (first 32 enacted bills are pre-cached); D3's
 agent/`ml_pipeline` paths still name the dead `groq/compound`. Also: the frontend
 build is fine but the dev server is not supervised — it does not survive a reboot.
+
+---
+
+## 2026-10-01 (later) — CTO-2's first self-discovered fix: a wrong date on every summary
+
+**Question asked by the operator:** "is the cto improving anything implementing any
+new idea or is he being useless?" Answer, from evidence rather than impression:
+**both — a real find, wrapped in bad discipline.**
+
+**What CTO-2 found (genuinely, unprompted, on its first pass).** `ai_service._format_header`
+fell back to `date_scraped` when a bill had no introduction date, so the stored summary
+header printed the date THIS SYSTEM scraped the bill as a legislative fact:
+"**Introduced:** August 18, 2026" on a 2022 Act. CTO-2 estimated 30 of 42 cached
+summaries were affected; the real number is **42 of 42** — every cached summary, both
+Groq- and local-Ollama-generated. That is a reviewer-facing wrong date on every summary in
+the product, and neither CTO-1 nor I had noticed it. It is the first finding in this project
+produced by an agent rather than reported by the operator, so the CTO-2 mandate is working.
+
+**What CTO-2 failed at.** Two passes ran to the 90-minute cap with **nothing committed**
+and no report; the only commits since its appointment were mine. Its diff sat uncommitted in
+the working tree for hours (one `timeout` kill from oblivion), the backfill script its own
+comment referenced did not exist, and the launcher log holds only pass banners (647 bytes
+for two passes) because a killed agent never flushes its buffered transcript. Mitigation
+written into `docs/CTO_V2_PROMPT.md` (commit within 40 minutes; append the report as you go,
+not at the end) and recorded as backlog finding 9.
+
+**What I did to finish its fix** (its code fix alone was not enough — stored text keeps the
+wrong date, and `bills.introduction_date` was NULL for all 140 bills):
+1. Committed its `ai_service.py` change (`df99494`) so a capped pass could not lose it.
+2. Wrote and ran `scripts/maintenance/backfill_introduction_dates.py`: 127/140 bills now
+   have an introduction date copied from a sourced `lifecycle_events` row
+   (`event_type='introduced'`, `source='prs_billtrack'`), event id printed per bill for
+   audit; the 13 bills with no such event keep NULL and their summary omits the line.
+3. Wrote and ran `scripts/maintenance/repair_summary_headers.py`: rebuilt the stored header
+   of all 42 cached summaries with the SAME `_format_header` function (never hand-edited
+   text), leaving each LLM body byte-identical so `model_version` stays truthful. Added
+   `bill_summaries.header_repaired_at` so the edit is visible, not silent.
+   Deliberately NOT regenerating through the LLM: 42 calls against a rate-limited free tier
+   can degrade a summary to the extractive fallback hours before a demo, to rewrite bodies
+   that were never wrong.
+4. Restarted the backend: the live :5000 server was still running pre-fix code, so bills
+   generated live during a demo would have printed the scrape date again.
+
+**Verified:** independent re-query shows 0 mismatches between every stored header and
+`bills.introduction_date`; the API serves bill 10 → "Introduced: July 27, 2026"; an uncached
+bill generated live through the running server (bill 4) → "August 10, 2026", its real sourced
+date; 42/42 rows carry `header_repaired_at`; `py_compile` clean on `ai_service.py`.
