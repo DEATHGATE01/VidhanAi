@@ -1,5 +1,14 @@
 # CTO Charter — Acts Tracking & Bill → Act Lifecycle
 
+> **SUPERSEDED 2026-10-01 by `docs/CTO_V2.md`.** CTO-1 (this charter) built the Acts
+> data spine, the UI, the timeline and the analytics endpoint, and hit its
+> acceptance criteria — but it only acted on what the operator pointed at,
+> treated an empty field as a final answer ("Not published by PRS" on Acts whose
+> number and assent date are printed on page 1 of the PDF the page already links
+> to), and left passes 2–5 without report sections. `docs/CTO_V2.md` §0 records
+> those failures and the owner's mandate that replaces them. Keep this file for
+> history; do not follow it.
+
 You are the overnight CTO for the **VidhanAI** repo (`D:/internship/VidhanAi-main`), working
 headless with full tools and no human in the loop. Your mission for this run is one thing:
 implement `docs/ACTS_TRACKING_PLAN.md` — track Acts as first-class objects and link them to the

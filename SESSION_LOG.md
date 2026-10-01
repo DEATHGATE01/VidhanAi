@@ -466,3 +466,73 @@ verify it for real, then fix the two A5 defects the browser check handed over.
 - /explore "Enacted as" chip needs a search to become visible (page 1 = newest
   unenacted bills) — optional polish the handoff noted, left as-is.
 - A5's "chip visibility" half and P2 remain; everything else on A1–A5 is done.
+
+---
+
+## 2026-10-01 — Act details sourced from every legitimate source; CTO-1 retired, CTO-2 appointed
+
+**Session intent (set at the end, from the operator's own words):** the operator
+judged the overnight CTO "boring" because it never improved anything on its own —
+"many details not published and it directly showed not published why not do some
+internet search in backend get the details and display those info. and cto should
+see to these details and improve these small things should not have to rely on me
+for suggestions." Two deliverables: (1) actually source those details, (2) replace
+the CTO with one that finds such gaps itself.
+
+**1. Act details — built `backend/scripts/maintenance/enrich_act_details.py`.**
+Three tiers, in authority order: India Code DSpace API → the Act's own official
+PDF (downloaded to a temp file, read with `pdftotext`, Gazette header parsed for
+`NO. n OF yyyy` and the assent sentence) → open-web corroboration (written only
+when two independent sources agree; a single web hit is never enough). Every
+written value stores the exact matched text in a new `acts.evidence` column; every
+miss stores which sources were consulted, when, and what each answered in new
+columns `acts.lookup_note` / `acts.details_checked_at` (migration:
+`scripts/maintenance/add_act_evidence_column.py`). Act page shows it all in an
+expandable "sources consulted / evidence" block, so "unknown" is now auditable.
+
+Results on the live DB: **assent dates 17/50 → 50/50**, **Act numbers 17/50 →
+35/50**, **in-force status 0/50 → 17/50** (from India Code `dc.identifier.repealed`),
+commencement still 0/50 (India Code has no enforcement date for these — left NULL,
+labelled), search trail on 50/50. The 15 Acts still without a number are the 2026
+set, and the reason is now recorded per Act: India Code has no 2026 record, and the
+"Act PDFs" PRS publishes for them are *Bill texts* ("AS PASSED BY BOTH HOUSES",
+"Bill No. 139-F of 2026") that carry an assent endorsement but no Act number.
+
+**Two errors of my own caught and fixed in the process** (both were exactly the
+kind of silent inaccuracy this project cannot ship): India Code publishes no assent
+field, so `dc.date.enact_date` (the *enactment/issue* date) was being written into
+`assent_date` — it is now only a labelled last resort, and a PDF-vs-India-Code
+disagreement is recorded as a CONFLICT with both dates (Bills of Lading Act 2025:
+Act's own text 24 Jul 2025 vs India Code enact_date 17 Jun 2025 → the Act's own
+text wins; 2 conflicts recorded). And the Act header hardcoded "Source (PRS)" for
+every Act, mislabelling India Code item URLs — now labelled from `acts.source`.
+
+**2. CTO-1 retired, CTO-2 appointed.** `docs/CTO_V2.md` (§0 records why CTO-1 was
+replaced), pass prompt `docs/CTO_V2_PROMPT.md`, self-discovery ledger
+`docs/CTO_BACKLOG.md` seeded with the findings from today, launcher
+`~/AppData/Local/hermes/scripts/cto-overnight-cto2.sh`. The new mandate: every
+pass dogfoods the live product, writes ≥3 evidenced findings of its own, fixes the
+highest-value ones, and never asks the operator what to do. §2 is the rule that
+would have caught today's complaint: an empty/unknown/placeholder value is a
+finding to chase, never a final answer. `docs/CTO_ACTS.md` carries a superseded
+note.
+
+**Environment note:** the :5000 listener I found at 09:2x was serving pre-change
+code (no `lookup_note` in `/api/acts/<slug>`) — two PIDs (928, 11820) held the
+port and neither was an `app.py` process visible to `pkill`. Killed both via
+PowerShell `Stop-Process` and started a tracked backend (`proc_a1d17092df1a`);
+the frontend dev server on :5173 had died, restarted as `proc_25c6cf505660`. Both
+verified 200 after restart.
+
+**Verified live:** `npm run build` passes; `/api/acts/<slug>` returns `evidence` +
+`lookup_note` + `details_checked_at`; browser on :5173 shows "There is a sourced
+value" pages (Bills of Lading Act 2025 → Act No. 18, In force, 24 Jul 2025) and
+"No number" pages (AP Reorganisation (Amendment) Act 2026 → "Not found — sources
+checked" + the full search trail naming India Code, the Act PDF and Wikipedia).
+
+**Unresolved / next pass should know:** the 15 2026 Acts still lack an Act number —
+next step worth trying is the Gazette (`egazette.gov.in`) rather than another
+aggregator; `/api/analytics/lifecycle-stats` is still unbuilt into any UI; 98
+bills still generate summaries live (first 32 enacted bills are pre-cached); D3's
+agent/`ml_pipeline` paths still name the dead `groq/compound`. Also: the frontend
+build is fine but the dev server is not supervised — it does not survive a reboot.
