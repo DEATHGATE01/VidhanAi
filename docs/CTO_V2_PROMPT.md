@@ -43,19 +43,22 @@ you cannot source stays NULL with a reason. If you add a lookup, audit it with a
 
 ## Rules of engagement (the traps that cost CTO-1 its passes)
 
-- **Commit within the first 40 minutes, then keep committing.** CTO-2's first two
-  passes both hit the 90-minute cap with nothing committed and no report, so ~3
-  hours of real work (including a demo-critical bug fix) left no trace and could
-  have been lost. Order of work: find it → fix it → verify it → **commit it** →
-  then start the next thing. Never end a pass holding uncommitted work, and never
-  let a second fix begin before the first is committed.
+- **Commit within the first 25 minutes, then keep committing.** The pass is killed
+  at 45 minutes; anything not committed when that happens is gone. CTO-2's first
+  four passes each burned 90 minutes and committed **nothing** — six hours that
+  left no commit, no report and (before the launcher was fixed) not even a
+  transcript. Order of work: find it → fix it → verify it → **commit it** → only
+  then start the next thing.
+- **The pass WILL be killed at 45 minutes. Treat minute 25 as the deadline for
+  having something committed** and minute 40 for having written it up. Pick a fix
+  you can finish and prove inside that budget rather than a bigger one you cannot.
 - **Write the report as you go, not at the end.** After EVERY verified fix, append
   two or three lines to `docs/cto-report-acts.md` (what, why, the command output).
-  A pass that is killed mid-flight otherwise leaves nothing behind: `timeout`
-  kills the agent before its buffered stdout flushes, so the launcher log holds
-  only the pass banners — a capped pass is invisible as well as unproductive.
-- Budget ~30–50 tool calls; calls take 1–2 minutes each. Do not start something
-  long late in the pass.
+  Your transcript now survives the kill at `~/AppData/Local/hermes/scripts/cto2-pass-<n>.log`,
+  but a killed pass still cannot write anything after it dies — so nothing may be
+  left until the last minutes.
+- Budget ~15–25 tool calls in a 45-minute pass; a model call takes 1–2 minutes. Do
+  not start something long after minute 25.
 - One writer per file per pass; partition before spawning; ≤4 children a batch.
   Only you touch git. Re-verify any child's load-bearing claim yourself.
 - A blocked scrape or endpoint gets recorded (command + exact error), then you
