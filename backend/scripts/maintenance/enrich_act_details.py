@@ -34,6 +34,12 @@ Usage (from `backend/`):
     python scripts/maintenance/enrich_act_details.py --dry-run --limit 5
     python scripts/maintenance/enrich_act_details.py                    # all acts
     python scripts/maintenance/enrich_act_details.py --act-ids 6,15 --refresh
+
+Do NOT run two copies of this at once. It is idempotent and safe to re-run, but
+two concurrent --refresh runs race on the same rows and the last writer wins: a
+run started against older parsing logic can silently overwrite a value a later run
+corrected. (Observed 2026-10-01: two overlapping runs both writing assent dates;
+the corrected values survived only because the older run finished first.)
 """
 from __future__ import annotations
 
