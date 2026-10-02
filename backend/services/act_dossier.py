@@ -140,7 +140,11 @@ def extract_commencement(text: str):
 
     m = _RE_BY_NOTIFICATION.search(flat)
     if m:
-        quote = m.group(0)[:220]
+        # These PDFs are two-column, so the RIGHT column's text can bleed into the
+        # middle of this sentence (e.g. "... the Central Government may, by 52 of
+        # 1962"). Cut the quote at the first stray "N of YYYY" so the evidence
+        # reads as the legal phrase rather than layout debris.
+        quote = re.split(r"\s\d{1,3}\s+of\s+\d{4}", m.group(0))[0].strip()[:200]
         return None, ("Commences by Central Government notification — the Act fixes no date; "
                       "the Government appoints it in the Official Gazette."), quote
 

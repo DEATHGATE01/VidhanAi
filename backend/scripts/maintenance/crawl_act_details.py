@@ -72,20 +72,29 @@ def main() -> int:
             acts = acts[: args.limit]
         print(f"acts to crawl: {len(acts)}")
 
-        stats = {"number_found": 0, "status_found": 0, "nothing": 0}
+        stats = {"number_found": 0, "already_held": 0, "status_found": 0, "nothing": 0}
         for act in acts:
             result = crawl_act(act, session)
             number = result["corroborated_number"]
             trail = format_trail(result)
 
-            got_number = bool(number) and act.act_number != number
+            # The column is VARCHAR and every existing row stores the number as
+            # TEXT, so compare like-for-like: `'37' != 37` is True in Python, and
+            # an int comparison would report every already-correct number as a
+            # fresh find and rewrite it on every run.
+            number_str = str(number) if number else None
+            got_number = bool(number_str) and (act.act_number or "").strip() != number_str
             if got_number:
                 stats["number_found"] += 1
+            elif number_str:
+                stats["already_held"] += 1
             else:
                 stats["nothing"] += 1
 
-            print(f"  {act.id:3d} {str(act.title)[:44]:44s} | number: "
-                  f"{('No. %d' % number) if number else 'not corroborated':16s} | "
+            shown = (f"No. {number_str}" if number_str else "not corroborated")
+            if number_str and not got_number:
+                shown += " (already held)"
+            print(f"  {act.id:3d} {str(act.title)[:44]:44s} | number: {shown:22s} | "
                   f"sources: {len(result['trail'])}")
 
             if args.dry_run:
@@ -93,9 +102,9 @@ def main() -> int:
             act.lookup_note = trail[:4000]
             act.details_checked_at = datetime.utcnow()
             if got_number:
-                act.act_number = number
+                act.act_number = number_str
                 from services.act_dossier import append_evidence
-                append_evidence(act, f"Act number No. {number} corroborated by "
+                append_evidence(act, f"Act number No. {number_str} corroborated by "
                                      f"{sorted(set(sum(result['corroborated_by'].values(), [])))}")
             db.session.commit()
             time.sleep(args.delay)
