@@ -583,3 +583,49 @@ wrong date, and `bills.introduction_date` was NULL for all 140 bills):
 `bills.introduction_date`; the API serves bill 10 → "Introduced: July 27, 2026"; an uncached
 bill generated live through the running server (bill 4) → "August 10, 2026", its real sourced
 date; 42/42 rows carry `header_repaired_at`; `py_compile` clean on `ai_service.py`.
+
+---
+
+## 2026-10-02 — Act dossier: summary of the Act, sourced commencement, and a real web lookup
+
+**Trigger.** Review of `/acts/andhra-pradesh-reorganisation-a-act-2026` showed two gaps: the page had
+no summary **of the Act itself** (only "Bills This Came From"), and `Act No. / Status / Commenced`
+still read "Not found — sources checked".
+
+**What changed**
+
+1. **Acts now have their own summary** (`act_summaries` table, `GET /api/acts/<id>/summary`).
+   Generated from the **Act's own PRS PDF** — the same document the page links — never from bill
+   content, because an Act and its bill are not the same thing and the provenance must not blur.
+   Stored with `model_version`, `source_url` and the source-character count; the page shows all
+   three. 50/50 Acts summarized (all `groq_openai/gpt-oss-120b`).
+2. **Commencement is now extracted from the Act's own text** (`services/act_dossier.py`).
+   "Not found" was the wrong answer: most Indian Acts fix no date and commence by notification, and
+   some (like this one) state a retrospective date in the document itself
+   ("shall be deemed to have come into force on the 2nd day of June, 2024"). 50/50 Acts now carry a
+   sourced statement: 4 real dates, 46 provisions ("by notification" / "no commencement clause",
+   which is what the text actually says). Matching runs on a whitespace-collapsed copy because these
+   PDFs are two-column and a clause can be split mid-phrase.
+3. **A real web lookup for what PRS does not publish** (`services/web_lookup.py`,
+   `scripts/maintenance/crawl_act_details.py`). It runs the reachable sources, records a per-source
+   trail on each Act, and writes a value only on corroboration. Findings, measured rather than
+   assumed: PRS publishes **no Act numbers anywhere** (its Acts list is Title+Year and links straight
+   to the PDF; there is no per-Act page); India Code has **not ingested any 2026 Act**; the eGazette
+   (which *assigns* numbers) serves browsers but refuses scripted clients; Google/Bing/DuckDuckGo/
+   Mojeek are all bot-walled from this host. So the trail says exactly that instead of "not found".
+4. **UI**: the missing-details line now reads "... not published by PRS — every source checked is
+   listed below", the trail renders as a multi-line audit, and `Commenced:` shows the sourced
+   statement.
+
+**Honest limits (deliberately not papered over).**
+
+- **15 Acts — all 2026 — still have no Act number**, and none could be corroborated: the number is
+  gazetted and no reachable source republishes it. The trail per Act documents every attempt, and a
+  re-run of `crawl_act_details.py` fills the number in automatically once a source knows it.
+- The Act summary is model-written from the Act's text; the page says so, with the model name and a
+  "check the Act itself" line.
+
+**Verified:** the Act page renders the summary (chips: `groq_openai/gpt-oss-120b`, `generative`),
+`Commenced: 2 Jun 2024`, and the audit trail; the API returns `commencement_note` + `lookup_note`
+for the Act; 50/50 summaries, 50/50 commencement statements; `npm run build` exit 0; `py_compile`
+clean on the new modules.

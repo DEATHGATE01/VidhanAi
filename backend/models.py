@@ -239,6 +239,46 @@ class BillVersion(db.Model):
         return f'<BillVersion bill={self.bill_id} v{self.version_number}>'
 
 
+class ActSummary(db.Model):
+    """AI-generated plain-English summary of an Act.
+
+    Deliberately a separate table from `bill_summaries`: an Act is summarized from
+    the ACT's own official text (its Gazette PDF), not from the bill's PRS
+    content, and the two must never be confused in provenance. Same honesty rules
+    as bills: the row records which model produced the text and which document it
+    was generated from, and a rule-based fallback is stamped as such.
+    """
+
+    __tablename__ = 'act_summaries'
+
+    id = db.Column(db.Integer, primary_key=True)
+    act_id = db.Column(db.Integer, db.ForeignKey('acts.id'), nullable=False, unique=True)
+
+    summary = db.Column(db.Text)
+    summary_type = db.Column(db.String(50))       # 'generative' | 'extractive'
+    confidence = db.Column(db.Float, default=0.5)
+
+    model_version = db.Column(db.String(80))      # e.g. 'groq_openai/gpt-oss-120b'
+    source_url = db.Column(db.String(500))        # the Act PDF the text came from
+    text_chars = db.Column(db.Integer)            # how much source text was fed in
+    generated_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    act = db.relationship('Act', backref=db.backref('summary_row', uselist=False))
+
+    def to_dict(self) -> dict:
+        return {
+            'id': self.id,
+            'act_id': self.act_id,
+            'summary': self.summary,
+            'summary_type': self.summary_type,
+            'confidence': self.confidence,
+            'model_version': self.model_version,
+            'source_url': self.source_url,
+            'text_chars': self.text_chars,
+            'generated_at': self.generated_at.isoformat() if self.generated_at else None,
+        }
+
+
 class BillSummary(db.Model):
     """AI-generated summaries of bills"""
     __tablename__ = 'bill_summaries'
@@ -424,6 +464,10 @@ class Act(db.Model):
     # on <date>" rather than a bare "Not published by PRS".
     lookup_note = db.Column(db.Text)
     details_checked_at = db.Column(db.DateTime)
+    # How the Act commences when there is no fixed date: most Acts come into
+    # force "on such date as the Central Government may appoint", which is a
+    # sourced fact from the Act's own text -- far better than "not found".
+    commencement_note = db.Column(db.Text)
     full_text = db.Column(db.Text)
     date_scraped = db.Column(db.DateTime, default=datetime.utcnow)
     last_updated = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -450,6 +494,7 @@ class Act(db.Model):
             'source_url': self.source_url,
             'pdf_url': self.pdf_url,
             'evidence': self.evidence,
+            'commencement_note': self.commencement_note,
             'lookup_note': self.lookup_note,
             'details_checked_at': self.details_checked_at.isoformat() if self.details_checked_at else None,
             'date_scraped': self.date_scraped.isoformat() if self.date_scraped else None,

@@ -534,6 +534,71 @@ def list_acts():
         return jsonify({'error': str(e)}), 500
 
 
+@api.route('/acts/<act_id>/summary', methods=['GET'])
+def get_act_summary(act_id):
+    """
+    A plain-English summary of the ACT itself, generated from the Act's own
+    official PDF (the same document the Act page links to).
+
+    Cache-through: returns the stored row when present, otherwise generates it
+    (one model call), stores it with its provenance and returns it. Nothing is
+    fabricated -- when no model produces output the response says so, so the UI
+    can render an honest empty state instead of an invented summary.
+    """
+    try:
+        from models import Act, ActSummary
+        act = Act.query.filter_by(act_id=act_id).first()
+        if not act:
+            return jsonify({'success': False, 'error': f'Act not found: {act_id}'}), 404
+
+        row = ActSummary.query.filter_by(act_id=act.id).first()
+        if row and request.args.get('refresh') != '1':
+            return jsonify({'success': True, 'summary': row.to_dict(), 'cached': True}), 200
+
+        import requests as _requests
+        from services.act_dossier import (USER_AGENT, build_act_summary,
+                                          extract_commencement, fetch_act_text)
+        session = _requests.Session()
+        session.headers.update({'User-Agent': USER_AGENT})
+
+        text, note = fetch_act_text(act, session)
+        if text is None:
+            return jsonify({'success': False,
+                            'error': f"The Act's PDF could not be read: {note}"}), 200
+
+        produced, model_version = build_act_summary(act, text)
+        if not produced:
+            return jsonify({'success': False,
+                            'error': 'No summary backend produced output for this Act '
+                                     '(see /api/health for backend state).'}), 200
+
+        # While the text is in hand, record how the Act commences: a date the Act
+        # states, or the provision (most Acts commence by notification).
+        when, comm_note, quote = extract_commencement(text)
+        if when and not act.commencement_date:
+            act.commencement_date = when
+        if comm_note and not act.commencement_note:
+            act.commencement_note = comm_note
+        if quote:
+            add = f"Commencement from the Act's own text: '{quote}'"
+            act.evidence = (f"{act.evidence} | {add}" if act.evidence else add)[:2000]
+
+        if not row:
+            row = ActSummary(act_id=act.id)
+        row.summary = produced
+        row.summary_type = 'generative'
+        row.confidence = 0.8
+        row.model_version = model_version
+        row.source_url = act.pdf_url
+        row.text_chars = len(text)
+        row.generated_at = datetime.utcnow()
+        db.session.add(row)
+        db.session.commit()
+        return jsonify({'success': True, 'summary': row.to_dict(), 'cached': False}), 200
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @api.route('/acts/<act_id>', methods=['GET'])
 def get_act(act_id):
     """

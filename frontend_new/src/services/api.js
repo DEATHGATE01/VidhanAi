@@ -229,6 +229,14 @@ export const getActById = async (actId) => {
   return response.data
 }
 
+// Plain-English summary OF THE ACT (generated from the Act's own official PDF).
+// Cache-through on the server: the first call for an Act may take a few seconds
+// while the model writes it, later calls are instant.
+export const getActSummary = async (actId) => {
+  const response = await api.get(`/acts/${actId}/summary`)
+  return response.data
+}
+
 export const getBillLifecycle = async (billId) => {
   const response = await api.get(`/bills/${billId}/lifecycle`)
   return response.data

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, ExternalLink, FileText, Scale, CheckCircle, AlertCircle, Info, ChevronDown, ChevronUp } from 'lucide-react'
-import { getActById, getBillLifecycle } from '../services/api'
+import { ArrowLeft, ExternalLink, FileText, Scale, CheckCircle, AlertCircle, Info, ChevronDown, ChevronUp, Cpu } from 'lucide-react'
+import { getActById, getActSummary, getBillLifecycle } from '../services/api'
 import LifecycleTimeline from '../components/LifecycleTimeline'
 
 export default function ActDetailPage() {
@@ -11,6 +11,8 @@ export default function ActDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [expandedBills, setExpandedBills] = useState(new Set())
+  const [actSummary, setActSummary] = useState(null)
+  const [actSummaryErr, setActSummaryErr] = useState('')
 
   // Fetch act on mount
   useEffect(() => {
@@ -68,6 +70,25 @@ export default function ActDetailPage() {
       return next
     })
   }
+
+  // The Act's own summary. Cache-through on the server: first open may generate
+  // (a few seconds), later opens are instant. A failure states the reason rather
+  // than showing an invented summary.
+  useEffect(() => {
+    let cancelled = false
+    setActSummary(null)
+    setActSummaryErr('')
+    getActSummary(actId)
+      .then((data) => {
+        if (cancelled) return
+        if (data?.success && data.summary) setActSummary(data.summary)
+        else setActSummaryErr(data?.error || 'No summary is available for this Act yet.')
+      })
+      .catch((err) => {
+        if (!cancelled) setActSummaryErr(err?.response?.data?.error || err?.message || 'Could not load the Act summary.')
+      })
+    return () => { cancelled = true }
+  }, [actId])
 
   const formatDate = (dateStr) => {
     if (!dateStr) return '—'
@@ -240,6 +261,13 @@ export default function ActDetailPage() {
             <span style={{ color: 'var(--text-3)' }}>Commenced:</span>
             {act.commencement_date ? (
               formatDate(act.commencement_date)
+            ) : act.commencement_note ? (
+              /* Most Indian Acts fix no date and commence by notification. That is
+                 a sourced fact from the Act's own text, not a missing value, so it
+                 is shown here rather than "not found". */
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-2)' }} title={act.commencement_note}>
+                {act.commencement_note}
+              </span>
             ) : (
               <MissingDetail />
             )}
@@ -253,7 +281,7 @@ export default function ActDetailPage() {
             <summary style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
               <Info size={14} />
               {missingDetails.length > 0
-                ? `${missingDetails.join(', ')} not found in any source — see the ${act.source ? sourceLabel(act.source) : 'source'} search`
+                ? `${missingDetails.join(', ')} not published by PRS — every source checked is listed below`
                 : `Sourced from ${act.source ? sourceLabel(act.source) : 'the source'}`}
             </summary>
             <div style={{ marginTop: '0.5rem', lineHeight: 1.55, maxWidth: '70ch' }}>
@@ -264,7 +292,7 @@ export default function ActDetailPage() {
                 </p>
               )}
               {act.lookup_note && (
-                <p style={{ margin: '0 0 0.35rem' }}>
+                <p style={{ margin: '0 0 0.35rem', whiteSpace: 'pre-wrap' }}>
                   <strong style={{ color: 'var(--text-2)' }}>Sources consulted:</strong>{' '}
                   {act.lookup_note}
                 </p>
@@ -304,6 +332,56 @@ export default function ActDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Summary of the Act itself — generated from the Act's own official text.
+          Provenance is stated on screen: which model, which document, how much of
+          it, and the reminder that this is an explanation, not the law. */}
+      <section style={{ marginBottom: '2rem' }}>
+        <div className="card" style={{ padding: '1.5rem' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center', marginBottom: '0.85rem' }}>
+            <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 600 }}>
+              Summary of this Act
+            </h2>
+            {actSummary?.model_version && (
+              <span className="chip" title="Model that produced this summary">
+                <Cpu size={11} /> {actSummary.model_version}
+              </span>
+            )}
+            {actSummary?.summary_type && (
+              <span className="chip" title="How the summary text was produced">
+                {actSummary.summary_type}
+              </span>
+            )}
+          </div>
+
+          {actSummary ? (
+            <>
+              <div style={{ fontSize: '0.88rem', lineHeight: 1.65, color: 'var(--text-1)', whiteSpace: 'pre-wrap' }}>
+                {actSummary.summary}
+              </div>
+              <p style={{ margin: '1rem 0 0', fontSize: '0.74rem', color: 'var(--text-3)', lineHeight: 1.5 }}>
+                Generated from this Act&apos;s own official text
+                {actSummary.source_url ? (
+                  <>
+                    {' ('}
+                    <a href={actSummary.source_url} target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>
+                      the Act PDF
+                    </a>
+                    {')'}
+                  </>
+                ) : null}
+                {actSummary.generated_at ? `, ${formatDate(actSummary.generated_at)}` : ''}
+                {actSummary.text_chars ? ` · ${actSummary.text_chars.toLocaleString('en-IN')} characters of source text` : ''}.
+                This is a model-written explanation, not the text of the law — check the Act itself before relying on it.
+              </p>
+            </>
+          ) : (
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-3)' }}>
+              {actSummaryErr || 'Generating a summary from this Act\u2019s own text…'}
+            </p>
+          )}
+        </div>
+      </section>
 
       {/* Bills this came from */}
       {act.bills && act.bills.length > 0 && (
