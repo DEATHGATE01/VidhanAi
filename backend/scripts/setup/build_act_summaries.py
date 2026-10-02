@@ -34,7 +34,7 @@ import requests  # noqa: E402
 from app import create_app  # noqa: E402
 from models import Act, ActSummary, db  # noqa: E402
 from services.act_dossier import (  # noqa: E402
-    USER_AGENT, build_act_summary, extract_commencement, fetch_act_text,
+    USER_AGENT, append_evidence, build_act_summary, extract_commencement, fetch_act_text,
 )
 
 
@@ -111,8 +111,8 @@ def main() -> int:
             if comm_note:
                 act.commencement_note = comm_note
             if quote:
-                add = f"Commencement from the Act's own text: '{quote}'"
-                act.evidence = (f"{act.evidence} | {add}" if act.evidence else add)[:2000]
+                # Idempotent: overlapping runs must not append the same sentence twice.
+                append_evidence(act, f"Commencement from the Act's own text: '{quote}'")
 
             if produced:
                 row = existing or ActSummary(act_id=act.id)

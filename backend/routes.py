@@ -556,7 +556,7 @@ def get_act_summary(act_id):
             return jsonify({'success': True, 'summary': row.to_dict(), 'cached': True}), 200
 
         import requests as _requests
-        from services.act_dossier import (USER_AGENT, build_act_summary,
+        from services.act_dossier import (USER_AGENT, append_evidence, build_act_summary,
                                           extract_commencement, fetch_act_text)
         session = _requests.Session()
         session.headers.update({'User-Agent': USER_AGENT})
@@ -580,8 +580,7 @@ def get_act_summary(act_id):
         if comm_note and not act.commencement_note:
             act.commencement_note = comm_note
         if quote:
-            add = f"Commencement from the Act's own text: '{quote}'"
-            act.evidence = (f"{act.evidence} | {add}" if act.evidence else add)[:2000]
+            append_evidence(act, f"Commencement from the Act's own text: '{quote}'")
 
         if not row:
             row = ActSummary(act_id=act.id)

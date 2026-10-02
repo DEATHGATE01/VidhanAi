@@ -156,6 +156,27 @@ def extract_commencement(text: str):
                   "amendment Acts often commence when the principal Act does."), None
 
 
+def append_evidence(act, fragment: str) -> bool:
+    """Append a provenance fragment to an Act's evidence, at most once.
+
+    Two runs (an overnight batch and a manual refresh) can overlap on the same
+    Act, and a naive `evidence + ' | ' + fragment` appends the same sentence
+    twice — which then renders twice in the "Evidence for the values above" line
+    on the Act page. Skipping an already-present fragment makes the writers
+    idempotent, so re-running any enrichment job is safe.
+
+    Returns True when the fragment was added.
+    """
+    fragment = (fragment or "").strip()
+    if not fragment:
+        return False
+    current = (act.evidence or "").strip()
+    if fragment in current:
+        return False
+    act.evidence = (f"{current} | {fragment}" if current else fragment)[:2000]
+    return True
+
+
 def build_act_summary(act, text: str):
     """Generate a plain-English summary of the Act from its own text.
 

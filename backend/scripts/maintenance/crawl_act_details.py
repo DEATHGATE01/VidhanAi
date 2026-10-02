@@ -94,9 +94,9 @@ def main() -> int:
             act.details_checked_at = datetime.utcnow()
             if got_number:
                 act.act_number = number
-                add = (f"Act number No. {number} corroborated by "
-                       f"{sorted(set(sum(result['corroborated_by'].values(), [])))}")
-                act.evidence = (f"{act.evidence} | {add}" if act.evidence else add)[:2000]
+                from services.act_dossier import append_evidence
+                append_evidence(act, f"Act number No. {number} corroborated by "
+                                     f"{sorted(set(sum(result['corroborated_by'].values(), [])))}")
             db.session.commit()
             time.sleep(args.delay)
 
