@@ -7,7 +7,7 @@ import AmendmentsPage from './pages/AmendmentsPage'
 import AlertsPage from './pages/AlertsPage'
 import ActsPage from './pages/ActsPage'
 import ActDetailPage from './pages/ActDetailPage'
-import { UserProvider } from './context/UserContext'
+import { UserProvider } from './context/UserProvider'
 
 // App shell: main.jsx provides <BrowserRouter>. Layout mirrors the CRM SaaS
 // reference — floating sidebar + content column.
