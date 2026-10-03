@@ -3,6 +3,7 @@ API Routes for Regulation Alert System
 RESTful endpoints for frontend integration and Big Data analytics
 """
 from flask import Blueprint, request, jsonify
+import json
 from models import db, Bill, BillContent, User, UserFavorite, UserReadingHistory, SearchHistory, UserSubscription, BillNotification
 from datetime import datetime, timedelta
 import db_service
@@ -700,10 +701,23 @@ def get_act(act_id):
         from models import StatuteHistory
         from services.statute_history import parent_key as _parent_key
         amends = list(data.get('amends') or [])
+        all_acts = Act.query.all() if amends else []
         for parent in amends:
             key = _parent_key(parent.get('title'), parent.get('year'))
             row = StatuteHistory.query.filter_by(parent_key=key).first() if key else None
             parent['history'] = row.to_dict() if row else None
+            # Other Acts in THIS set that amend the same parent. Sourced from those Acts'
+            # own text (acts.amends), and it completes the chain where India Code's
+            # catalogue has not caught up — e.g. the 2025 Registration of Births and
+            # Deaths amendment, which this set tracks but the catalogue search missed.
+            parent['tracked_acts'] = [
+                {'id': other.id, 'act_id': other.act_id, 'title': other.title,
+                 'year': other.year, 'bill_number': other.bill_number}
+                for other in all_acts
+                if other.id != act.id
+                and any(_parent_key(x.get('title'), x.get('year')) == key
+                        for x in json.loads(other.amends or '[]'))
+            ]
         data['amends'] = amends
 
         data['bills'] = linked_bills

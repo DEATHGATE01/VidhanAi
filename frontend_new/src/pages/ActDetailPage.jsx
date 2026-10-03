@@ -455,14 +455,15 @@ export default function ActDetailPage() {
                     {/* The parent's own chapters. Read from India Code's catalogue, one
                         link per instrument, and this Act shown last so the chain reads as
                         a history rather than a list. */}
-                    {parent.history && (parent.history.entries || []).length > 0 && (
+                    {((parent.history && (parent.history.entries || []).length > 0)
+                      || (parent.tracked_acts || []).length > 0) && (
                       <div style={{ marginTop: '0.55rem', paddingLeft: '0.8rem',
                                     borderLeft: '2px solid var(--border, rgba(0,0,0,0.08))' }}>
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-3)', marginBottom: '0.25rem' }}>
-                          {parent.history.entries.length} earlier chapter
-                          {parent.history.entries.length > 1 ? 's' : ''} of this statute:
+                          {((parent.history?.entries || []).length + (parent.tracked_acts || []).length)} earlier chapter
+                          {((parent.history?.entries || []).length + (parent.tracked_acts || []).length) > 1 ? 's' : ''} of this statute:
                         </div>
-                        {parent.history.entries.map((chapter, j) => (
+                        {((parent.history && parent.history.entries) || []).map((chapter, j) => (
                           <div key={`${chapter.handle || chapter.title}-${j}`}
                                style={{ display: 'flex', gap: '0.6rem', fontSize: '0.8rem', padding: '0.12rem 0' }}>
                             <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.74rem',
@@ -483,6 +484,25 @@ export default function ActDetailPage() {
                             </span>
                           </div>
                         ))}
+                        {/* Other Acts in THIS set that amend the same parent, linked to
+                            their pages. India Code's catalogue lags (it has no 2025 record
+                            for the Births and Deaths Act), so these come from the other
+                            Acts' own text and are the chapters we can verify ourselves. */}
+                        {(parent.tracked_acts || []).map((other) => (
+                          <div key={`tracked-${other.id}`}
+                               style={{ display: 'flex', gap: '0.6rem', fontSize: '0.8rem', padding: '0.12rem 0' }}>
+                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.74rem',
+                                           color: 'var(--text-2)', minWidth: '2.6rem' }}>
+                              {other.year || '—'}
+                            </span>
+                            <span style={{ color: 'var(--text-1)' }}>
+                              <Link to={`/acts/${other.act_id}`} style={{ color: 'var(--accent, #2563eb)' }}>
+                                {other.title}
+                              </Link>
+                              <span style={{ color: 'var(--text-3)' }}> · tracked in this set</span>
+                            </span>
+                          </div>
+                        ))}
                         <div style={{ display: 'flex', gap: '0.6rem', fontSize: '0.8rem', padding: '0.12rem 0' }}>
                           <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.74rem',
                                          color: 'var(--text-2)', minWidth: '2.6rem' }}>
@@ -492,14 +512,18 @@ export default function ActDetailPage() {
                             {act?.title} — this Act
                           </span>
                         </div>
-                        <div style={{ fontSize: '0.73rem', color: 'var(--text-3)', paddingTop: '0.25rem' }}>
-                          {parent.history.note}
-                        </div>
+                        {parent.history && (
+                          <div style={{ fontSize: '0.73rem', color: 'var(--text-3)', paddingTop: '0.25rem' }}>
+                            {parent.history.note}
+                          </div>
+                        )}
                       </div>
                     )}
-                    {parent.history && !(parent.history.entries || []).length && (
+                    {!(parent.history && (parent.history.entries || []).length)
+                      && !(parent.tracked_acts || []).length && (
                       <div style={{ fontSize: '0.73rem', color: 'var(--text-3)', marginTop: '0.35rem' }}>
-                        {parent.history.note}
+                        {(parent.history && parent.history.note)
+                          || 'No record of this statute has been read yet — run the statute-history build to read India Code.'}
                       </div>
                     )}
                   </div>

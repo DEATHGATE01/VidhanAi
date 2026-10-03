@@ -22,6 +22,8 @@ from __future__ import annotations
 
 import re
 
+from services.act_dossier import looks_interleaved as looks_damaged_name
+
 DISCOVER = "https://indiacode.gov.in/server/api/discover/search/objects"
 SOURCE_LABEL = "India Code (indiacode.gov.in)"
 ITEM_BASE = "https://indiacode.gov.in/handle/"
@@ -72,14 +74,21 @@ def _metadata_value(ind, *keys):
     return None
 
 
-def discover_parent_history(parent_title, parent_year, session, size=20, timeout=45):
+def discover_parent_history(parent_title, parent_year, session, size=50, timeout=45):
     """Return (entries, note, source_url) for one parent statute.
 
-    entries: [{title, year, act_number, handle, url}] — oldest first, deduplicated.
-    The list may legitimately be empty (nothing catalogued, or the search failed);
-    `note` always says which, so the UI never presents an empty history as a fact
-    that no amendment exists.
+    entries: [{title, year, act_number, repealed_by, is_parent, handle, url}] — oldest
+    first, deduplicated. The list may legitimately be empty (nothing catalogued, or the
+    search failed); `note` always says which, so the UI never presents an empty history
+    as a fact that no amendment exists.
     """
+    if looks_damaged_name(parent_title):
+        # The name was spliced by the PDF's text layer ("InsurAance Act"). Searching on it
+        # returns other statutes entirely, so the search is not run at all and the caller
+        # gets that reason rather than a chain built from a wrong query.
+        return [], (f"the parent statute's name is unreadable in the source PDF's text layer "
+                    f"(\"{parent_title}\", {parent_year}) — the catalogue search needs a real "
+                    f"name and is not run on a spliced one"), None
     key_words = [w for w in parent_key(parent_title, parent_year).split() if len(w) > 3]
     if not key_words:
         return [], "the parent statute's name has no distinctive words to search on", None
@@ -100,7 +109,7 @@ def discover_parent_history(parent_title, parent_year, session, size=20, timeout
     objects = ((((payload.get("_embedded") or {}).get("searchResult") or {})
                 .get("_embedded") or {}).get("objects")) or []
     seen = len(objects)
-    entries, skipped, dropped = {}, 0, 0
+    entries, skipped, dropped, predated = {}, 0, 0, 0
     for obj in objects:
         ind = (obj.get("_embedded") or {}).get("indexableObject") or {}
         title = (_metadata_value(ind, "dc.title") or "").strip()
@@ -132,6 +141,15 @@ def discover_parent_history(parent_title, parent_year, session, size=20, timeout
         repealed_by = f"{rep.group(1)} of {rep.group(2)}" if rep else None
         ym = _RE_YEAR_ONLY.search(str(year)) or (_RE_YEAR_ONLY.search(title) if not year else None)
         resolved_year = year_from_title or (ym.group(1) if ym else None) or (str(year)[:4] or None)
+        # An instrument dated BEFORE the statute cannot amend it. Those records are other
+        # statutes that merely share words with the name — a "Railways (Amendment) Act,
+        # 1961" under the Railways Act, 1989, or a 1993 record surfacing under a 2024 Act.
+        try:
+            if parent_year and resolved_year and int(str(resolved_year)[:4]) < int(str(parent_year)[:4]):
+                predated += 1
+                continue
+        except (TypeError, ValueError):
+            pass
         handle = ind.get("handle")
         # India Code often holds the same instrument twice — once plain and once with its
         # number and fate appended ("...Act, 2015" vs "...Act, 2015, 12 of 2015, (Rep., Act
@@ -165,9 +183,12 @@ def discover_parent_history(parent_title, parent_year, session, size=20, timeout
                 existing["title"] = display_title
 
     out = sorted(entries.values(), key=lambda e: (e["year"] or "9999", e["title"]))
+    detail = (f"{seen} records read, {skipped} unrelated or section-level, "
+              f"{predated} predating the statute, {dropped} untitled")
     if not out:
-        return [], (f"{SOURCE_LABEL}: searched \"{query}\" — {seen} records seen, none of them an "
-                    f"amending Act or Ordinance for this statute ({skipped} unrelated, {dropped} untitled)"), url
+        return [], (f"{SOURCE_LABEL}: searched \"{query}\" — {detail}; none of them an amending "
+                    f"Act or Ordinance for this statute"), url
     kept = ", ".join(f"{e['act_number'] or 'no number'} ({e['year'] or 'year not stated'})" for e in out)
-    return out, (f"{SOURCE_LABEL}: {len(out)} amending instrument(s) catalogued against this statute — "
-                 f"{kept} (from {seen} records, {skipped} unrelated or section-level records dropped)"), url
+    return out, (f"{SOURCE_LABEL}: {len(out)} amending instrument(s) catalogued against this "
+                 f"statute — {kept} ({detail}). Catalogue search covers the first {size} records "
+                 f"for the name, so an older amendment may not be listed."), url

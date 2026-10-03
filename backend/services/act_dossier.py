@@ -298,6 +298,11 @@ def _clean_statute_name(name: str) -> str:
     return name.strip()
 
 
+# Public alias: other modules (services.statute_history) need the same test to avoid
+# querying a catalogue with a name the PDF spliced.
+looks_interleaved = _looks_interleaved
+
+
 def extract_amendment_targets(text: str):
     """Return the statutes an Act says it amends, with the sections it touches.
 
