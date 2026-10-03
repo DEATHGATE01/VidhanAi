@@ -19,6 +19,13 @@ export default function ActDetailPage() {
   // the page simply never received it.
   const [timeline, setTimeline] = useState([])
 
+  // "Statute history": the earlier law this Act amends, read from the Act's own text
+  // ("further to amend the Andhra Pradesh Reorganisation Act, 2014 ... in section 5").
+  // The timeline above only covers the bill that produced THIS Act — an amending Act
+  // is one chapter of a longer statute, and this is the rest of it that we can source.
+  const [statuteLineage, setStatuteLineage] = useState([])
+  const [lineageNote, setLineageNote] = useState('')
+
   // Fetch act on mount
   useEffect(() => {
     let cancelled = false
@@ -30,6 +37,8 @@ export default function ActDetailPage() {
           if (response.success && response.act) {
             setAct(response.act)
             setTimeline(response.act.timeline || [])
+            setStatuteLineage(response.act.amends || [])
+            setLineageNote(response.act.amends_note || '')
             // Fetch lifecycle for each linked bill
             const bills = response.act.bills || []
             bills.forEach((bill) => {
@@ -401,6 +410,111 @@ export default function ActDetailPage() {
                 </li>
               ))}
             </ol>
+          </div>
+        </section>
+      )}
+
+      {/* Statute history — the longer story the timeline above cannot show. An
+          amending Act says in its own text which earlier law it changes, so that
+          parent statute is a sourced chapter even though we do not hold its page.
+          Shown only when there is something sourced to say. */}
+      {(statuteLineage.length > 0 || /amend|repeal/i.test(act?.title || '')) && (
+        <section style={{ marginBottom: '2rem' }}>
+          <div className="card" style={{ padding: '1.5rem' }}>
+            <h2 style={{ margin: '0 0 0.6rem', fontSize: '1.05rem', fontWeight: 600 }}>
+              Statute history
+            </h2>
+            {statuteLineage.length > 0 ? (
+              <>
+                <p style={{ margin: '0 0 0.9rem', fontSize: '0.85rem', color: 'var(--text-2)' }}>
+                  The timeline above is this Act's own passage. This Act also changes an earlier
+                  law, so it is the latest chapter of a longer story — the chapters before it are
+                  read from India Code's catalogue and listed below.
+                </p>
+                {statuteLineage.map((parent, i) => (
+                  <div key={`${parent.title}-${parent.year}-${i}`}
+                       style={{ padding: '0.7rem 0',
+                                borderTop: i ? '1px solid var(--border, rgba(0,0,0,0.08))' : 'none' }}>
+                    <div style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--text-1)' }}>
+                      amends {parent.title}, {parent.year}
+                    </div>
+                    <div style={{ fontSize: '0.82rem', color: 'var(--text-2)', marginTop: '0.2rem' }}>
+                      {parent.cited_act_number ? `No. ${parent.cited_act_number} · ` : ''}
+                      {parent.sections && parent.sections.length
+                        ? `section${parent.sections.length > 1 ? 's' : ''} ${parent.sections.join(', ')}`
+                        : 'sections not named in the pages read'}
+                      {' · '}
+                      <a href={`https://indiacode.gov.in/search?query=${encodeURIComponent(`${parent.title}, ${parent.year}`)}`}
+                         target="_blank" rel="noreferrer" style={{ color: 'var(--accent, #2563eb)' }}>
+                        its own history on India Code
+                      </a>
+                    </div>
+                    <div style={{ fontSize: '0.73rem', color: 'var(--text-3)', marginTop: '0.2rem' }}>
+                      {parent.evidence}
+                    </div>
+                    {/* The parent's own chapters. Read from India Code's catalogue, one
+                        link per instrument, and this Act shown last so the chain reads as
+                        a history rather than a list. */}
+                    {parent.history && (parent.history.entries || []).length > 0 && (
+                      <div style={{ marginTop: '0.55rem', paddingLeft: '0.8rem',
+                                    borderLeft: '2px solid var(--border, rgba(0,0,0,0.08))' }}>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-3)', marginBottom: '0.25rem' }}>
+                          {parent.history.entries.length} earlier chapter
+                          {parent.history.entries.length > 1 ? 's' : ''} of this statute:
+                        </div>
+                        {parent.history.entries.map((chapter, j) => (
+                          <div key={`${chapter.handle || chapter.title}-${j}`}
+                               style={{ display: 'flex', gap: '0.6rem', fontSize: '0.8rem', padding: '0.12rem 0' }}>
+                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.74rem',
+                                           color: 'var(--text-2)', minWidth: '2.6rem' }}>
+                              {chapter.year || '—'}
+                            </span>
+                            <span style={{ color: 'var(--text-1)' }}>
+                              <a href={chapter.url} target="_blank" rel="noreferrer"
+                                 style={{ color: 'var(--accent, #2563eb)' }}>
+                                {chapter.title}
+                              </a>
+                              {chapter.act_number ? (
+                                <span style={{ color: 'var(--text-2)' }}> · {chapter.act_number}</span>
+                              ) : null}
+                              {chapter.repealed_by ? (
+                                <span style={{ color: 'var(--text-3)' }}> · repealed by {chapter.repealed_by}</span>
+                              ) : null}
+                            </span>
+                          </div>
+                        ))}
+                        <div style={{ display: 'flex', gap: '0.6rem', fontSize: '0.8rem', padding: '0.12rem 0' }}>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.74rem',
+                                         color: 'var(--text-2)', minWidth: '2.6rem' }}>
+                            {act?.year}
+                          </span>
+                          <span style={{ color: 'var(--text-1)', fontWeight: 600 }}>
+                            {act?.title} — this Act
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '0.73rem', color: 'var(--text-3)', paddingTop: '0.25rem' }}>
+                          {parent.history.note}
+                        </div>
+                      </div>
+                    )}
+                    {parent.history && !(parent.history.entries || []).length && (
+                      <div style={{ fontSize: '0.73rem', color: 'var(--text-3)', marginTop: '0.35rem' }}>
+                        {parent.history.note}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                <p style={{ margin: '0.9rem 0 0', fontSize: '0.75rem', color: 'var(--text-3)' }}>
+                  The earlier chapters are read from India Code's own catalogue and linked to
+                  their records. Parent statutes do not have their own page in this set yet —
+                  only the Acts listed under /acts do.
+                </p>
+              </>
+            ) : (
+              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-2)' }}>
+                {lineageNote || "No earlier statute is named in this Act's text."}
+              </p>
+            )}
           </div>
         </section>
       )}

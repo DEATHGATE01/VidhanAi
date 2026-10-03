@@ -13,6 +13,7 @@ Database Models for Regulation Alert System - Enhanced for Big Data Analysis
 - BillActLink: Bill -> Act relationship (enacted_as / replaced_by_act / ...)
 - LifecycleEvent: Sourced lifecycle events for bills and acts
 """
+import json
 from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -476,6 +477,14 @@ class Act(db.Model):
     # derived status can be labelled as derived in the UI.
     status_basis = db.Column(db.Text)
     full_text = db.Column(db.Text)
+    # The statutes this Act says it amends, as a JSON list read from its own text
+    # ("An Act further to amend the Andhra Pradesh Reorganisation Act, 2014" and
+    # "in the ... Act, 2014, in section 5"). This is the first half of a statute's
+    # history: the bill that produced the Act is only its most recent chapter.
+    amends = db.Column(db.Text)
+    # How that lineage was read, plus any caveat (a name the PDF's two-column text
+    # layer spliced), so the UI can show the trail rather than assert the claim.
+    amends_note = db.Column(db.Text)
     date_scraped = db.Column(db.DateTime, default=datetime.utcnow)
     last_updated = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -504,6 +513,8 @@ class Act(db.Model):
             'commencement_note': self.commencement_note,
             'bill_number': self.bill_number,
             'status_basis': self.status_basis,
+            'amends': json.loads(self.amends) if self.amends else [],
+            'amends_note': self.amends_note,
             'lookup_note': self.lookup_note,
             'details_checked_at': self.details_checked_at.isoformat() if self.details_checked_at else None,
             'date_scraped': self.date_scraped.isoformat() if self.date_scraped else None,
@@ -597,4 +608,44 @@ class LifecycleEvent(db.Model):
             'notes': self.notes,
             'is_estimated': self.is_estimated,
             'extracted_at': self.extracted_at.isoformat() if self.extracted_at else None
+        }
+
+
+class StatuteHistory(db.Model):
+    """The amendment chain of a PARENT statute, read from India Code's catalogue.
+
+    WHY this is a table of its own: the history belongs to the parent statute, not to
+    any one Act. Several Acts in the set amend the same parent (MMDR Act 1957, the
+    Constitution Orders), and the chain is the same for each of them — so it is stored
+    once, keyed by the parent, instead of being duplicated per Act or re-fetched on
+    every page view.
+
+    `entries` is JSON: a list of {title, year, act_number, repealed_by, is_parent,
+    handle, url}, oldest first. `note` always records how the chain was read and what
+    was excluded, so an empty chain is explained rather than left to look like "this
+    statute was never amended".
+    """
+    __tablename__ = 'statute_history'
+
+    id = db.Column(db.Integer, primary_key=True)
+    parent_key = db.Column(db.String(255), unique=True, nullable=False, index=True)
+    parent_title = db.Column(db.String(400))
+    parent_year = db.Column(db.String(10))
+    entries = db.Column(db.Text)        # JSON list, oldest first
+    note = db.Column(db.Text)           # how it was read + what was left out
+    source_url = db.Column(db.String(500))
+    checked_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<StatuteHistory {self.parent_key}: {self.parent_title}>'
+
+    def to_dict(self):
+        return {
+            'parent_key': self.parent_key,
+            'parent_title': self.parent_title,
+            'parent_year': self.parent_year,
+            'entries': json.loads(self.entries) if self.entries else [],
+            'note': self.note,
+            'source_url': self.source_url,
+            'checked_at': self.checked_at.isoformat() if self.checked_at else None,
         }

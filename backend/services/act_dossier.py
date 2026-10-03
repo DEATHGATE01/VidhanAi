@@ -31,6 +31,7 @@ HONESTY CONTRACT
 """
 from __future__ import annotations
 
+import difflib
 import os
 import re
 import shutil
@@ -241,6 +242,203 @@ def derive_status(act):
              + ". No source consulted records its repeal, and India Code has no "
                "record for this year yet.")
     return "in_force", basis
+
+
+# ---------------------------------------------------------------------------
+# Statute lineage: what an Act amends
+#
+# An amending Act names its parent statute in its own long title ("An Act further
+# to amend the Andhra Pradesh Reorganisation Act, 2014") and again in the operative
+# clause ("In the Andhra Pradesh Reorganisation Act, 2014, in section 5, ...").
+# Both are authoritative — they are the Act's text, not a summary of it — and they
+# are what lets the Act page show the statute's history instead of only the history
+# of the 2026 bill that produced it.
+#
+# CAVEAT: these PDFs are two-column and the text layer interleaves the columns, so
+# a capture can come back as "AndhBraILPLradesh Reorganisation Act" (the word split
+# by an inserted fragment). We collect every candidate and prefer the clean one; a
+# capture that had to be repaired is flagged, never silently trusted.
+_RE_AMENDS_TITLE = re.compile(
+    r"(?:further\s+to\s+amend|to\s+amend)\s+(?:the\s+)?"
+    r"([A-Z][A-Za-z ,()&\-]{4,90}?(?:Act|Adhiniyam|Code|Order))\s*,?\s*((?:1[89]|20)\d\d)",
+    re.I)
+_RE_AMENDS_IN = re.compile(
+    r"\bin\s+the\s+([A-Z][A-Za-z ,()&\-]{4,90}?(?:Act|Adhiniyam|Code|Order))\s*,?\s*"
+    r"((?:1[89]|20)\d\d)\s*,?[^A-Za-z]{0,12}\s*in\s+section\s*(\d+[A-Z]?)", re.I)
+_RE_SECTION_IN_RANGE = re.compile(r"\bin\s+section\s*(\d+[A-Z]?)\b", re.I)
+# The marginal note cites the PARENT's own number beside the amending clause
+# ("Act 6 of 2014." next to "In the Andhra Pradesh Reorganisation Act, 2014").
+_RE_CITED_ACT_NO = re.compile(r"\bAct\s+(\d+)\s+of\s+((?:1[89]|20)\d\d)\b")
+# Clean statute phrases already present in the document, used to REASSEMBLE a name the
+# text layer damaged (the leading "In the " the pattern can absorb is stripped below).
+_RE_CLEAN_STATUTE_PHRASE = re.compile(
+    r"\b[A-Z][a-z]+(?: (?:and |of |the |for )?[A-Za-z()-]{2,}){0,8} (?:Act|Code|Order|Adhiniyam)\b")
+# Below this similarity a phrase is a different statute, not a repair: better to say the
+# name is unreadable than to print a plausible-looking wrong statute.
+REPAIR_MIN_RATIO = 0.82
+
+
+def _looks_interleaved(name: str) -> bool:
+    """True when a capture looks like two columns were interleaved into one word.
+
+    'AndhBraILPLradesh', 'DisBasItLeLr' and 'NationAal' are single tokens carrying a
+    capital AFTER the first letter — Indian statute titles are title-case words, so an
+    internal capital means the other column was spliced into the word. Such a capture
+    is treated as damaged and never used verbatim.
+    """
+    for token in name.split():
+        if re.search(r"^[^A-Za-z]*[A-Za-z][a-z]*(?=[A-Z])[A-Za-z]*[a-z]", token):
+            return True
+    return False
+
+
+def _clean_statute_name(name: str) -> str:
+    name = re.sub(r"\s+", " ", name or "").strip(" ,.;:")
+    name = re.sub(r"^(?:the)\s+", "", name, flags=re.I)
+    return name.strip()
+
+
+def extract_amendment_targets(text: str):
+    """Return the statutes an Act says it amends, with the sections it touches.
+
+    Each entry: {title, year, sections, cited_act_number, confidence, evidence}.
+    `confidence` is 'clean' when the capture reads as a real title and 'repaired'
+    when only a column-interleaved variant was available, so the caller can show
+    the difference instead of presenting a mended name as verbatim.
+    Returns [] for a principal Act (a new law amends nothing) — a fact about that
+    Act, not a failure.
+    """
+    if not text:
+        return []
+    flat = re.sub(r"\s+", " ", text)
+    candidates = {}
+
+    def add(raw_name, year, section=None):
+        name = _clean_statute_name(raw_name)
+        if len(name) < 6:
+            return None
+        key = (re.sub(r"[^a-z]", "", name.lower()), year)
+        entry = candidates.setdefault(key, {
+            "title": name, "year": year, "sections": [],
+            "cited_act_number": None, "interleaved": _looks_interleaved(name),
+            "count": 0,
+        })
+        entry["count"] += 1
+        if section and section not in entry["sections"]:
+            entry["sections"].append(section)
+        if entry["interleaved"] and not _looks_interleaved(name):
+            entry["title"], entry["interleaved"] = name, False
+        return entry
+
+    for m in _RE_AMENDS_TITLE.finditer(flat):
+        add(m.group(1), m.group(2))
+    for m in _RE_AMENDS_IN.finditer(flat):
+        entry = add(m.group(1), m.group(2), m.group(3))
+        if entry is None:
+            continue
+        window = flat[max(0, m.start() - 40): m.end() + 160]
+        for cited in _RE_CITED_ACT_NO.finditer(window):
+            if cited.group(2) == m.group(2):
+                entry["cited_act_number"] = f"{cited.group(1)} of {cited.group(2)}"
+                break
+        tail = flat[m.end(): m.end() + 1500]
+        nxt = re.search(r"\bin\s+the\s+[A-Z][A-Za-z ,()&\-]{4,90}?(?:Act|Adhiniyam|Code|Order)", tail)
+        if nxt:
+            tail = tail[:nxt.start()]
+        for extra in _RE_SECTION_IN_RANGE.finditer(tail):
+            if extra.group(1) not in entry["sections"] and len(entry["sections"]) < 8:
+                entry["sections"].append(extra.group(1))
+
+    # A damaged name is reassembled from a cleaner occurrence of the same phrase in the
+    # same document; failing that it is FLAGGED, not printed as if it were the statute.
+    damaged = [e for e in candidates.values() if e["interleaved"]]
+    if damaged:
+        phrases = list(dict.fromkeys(_RE_CLEAN_STATUTE_PHRASE.findall(flat)))
+        phrases = [re.sub(r"^(?:In the |the )", "", ph) for ph in phrases]
+        for entry in damaged:
+            best, ratio = None, 0.0
+            for ph in phrases:
+                r = difflib.SequenceMatcher(None, entry["title"].lower(), ph.lower()).ratio()
+                if r > ratio:
+                    best, ratio = ph, r
+            if best and ratio >= REPAIR_MIN_RATIO:
+                entry["title_repaired_from"] = entry["title"]
+                entry["title"] = best
+                entry["repaired"] = True
+                entry["interleaved"] = False   # the name shown is the reassembled one
+            else:
+                entry["damaged"] = True
+
+    out = []
+    for entry in candidates.values():
+        if entry.pop("interleaved", False):
+            entry["confidence"] = "damaged"
+        elif entry.pop("repaired", False):
+            entry["confidence"] = "repaired"
+        else:
+            entry["confidence"] = "clean"
+        entry["evidence"] = (
+            f"stated in the Act's own text: \"further to amend the {entry['title']}, {entry['year']}\"")
+        if entry["confidence"] == "repaired":
+            entry["evidence"] += (" — the PDF's two-column text layer spliced this name as "
+                                  f"\"{entry.get('title_repaired_from')}\"; it was reassembled from a cleaner "
+                                  "occurrence of the same clause in the same document")
+        elif entry["confidence"] == "damaged":
+            entry["evidence"] += (" — and the text layer spliced the name itself "
+                                  f"(read as \"{entry['title']}\"), so this statute is identified by its year "
+                                  "and, where the marginal note cites it, its own number")
+        out.append(entry)
+    # The same statute can appear twice: text-layer damage is not uniform, so one
+    # occurrence reads cleanly and another is spliced. Those are one statute — merge
+    # them, keeping the best confidence, the union of the sections, and any cited
+    # number either occurrence carried.
+    ranked = {"clean": 3, "repaired": 2, "damaged": 1}
+    merged = {}
+    for entry in out:
+        key = (re.sub(r"[^a-z]", "", (entry["title"] or "").lower()), entry["year"])
+        keep = merged.get(key)
+        if keep is None:
+            merged[key] = entry
+            continue
+        better, worse = ((entry, keep) if ranked[entry["confidence"]] > ranked[keep["confidence"]]
+                         else (keep, entry))
+        better["sections"] = list(dict.fromkeys(better["sections"] + worse["sections"]))
+        better["cited_act_number"] = better.get("cited_act_number") or worse.get("cited_act_number")
+        better["count"] = better.get("count", 1) + worse.get("count", 1)
+        merged[key] = better
+    out = list(merged.values())
+
+    # Second pass: a damaged twin and its clean original can still survive as separate
+    # entries when the repair did not fire (e.g. the clean phrase is absent from the
+    # corpus). Same year + near-identical name means one statute, so keep the readable
+    # name and fold the rest in.
+    folded = []
+    for entry in out:
+        norm = re.sub(r"[^a-z]", "", (entry["title"] or "").lower())
+        match = None
+        for keep in folded:
+            if keep["year"] != entry["year"]:
+                continue
+            kn = re.sub(r"[^a-z]", "", (keep["title"] or "").lower())
+            if difflib.SequenceMatcher(None, norm, kn).ratio() >= 0.90:
+                match = keep
+                break
+        if match is None:
+            folded.append(entry)
+            continue
+        better, worse = ((entry, match) if ranked[entry["confidence"]] > ranked[match["confidence"]]
+                         else (match, entry))
+        better["sections"] = list(dict.fromkeys(better["sections"] + worse["sections"]))
+        better["cited_act_number"] = better.get("cited_act_number") or worse.get("cited_act_number")
+        better["count"] = better.get("count", 1) + worse.get("count", 1)
+        if better is not match:
+            folded[folded.index(match)] = better
+    out = folded
+
+    out.sort(key=lambda e: (-e["count"], e["year"]))
+    for e in out:
+        e.pop("count", None)
+    return out
 
 
 def build_act_summary(act, text: str):

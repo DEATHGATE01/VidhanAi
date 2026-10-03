@@ -692,6 +692,20 @@ def get_act(act_id):
                     step['label'] = 'Commenced (retrospective)'
         timeline.sort(key=lambda e: (stage_rank.get(e['event'], 50), e['date'] is None, e['date'] or ''))
 
+        # Attach each parent statute's amendment chain (statute_history), read from
+        # India Code's catalogue. This is what makes a statute's history longer than the
+        # bill that produced the Act on this page: the parent's own chapters, each with
+        # the India Code handle it was read from. A parent with no chain carries the
+        # reason instead, so "no history" is never presented as "never amended".
+        from models import StatuteHistory
+        from services.statute_history import parent_key as _parent_key
+        amends = list(data.get('amends') or [])
+        for parent in amends:
+            key = _parent_key(parent.get('title'), parent.get('year'))
+            row = StatuteHistory.query.filter_by(parent_key=key).first() if key else None
+            parent['history'] = row.to_dict() if row else None
+        data['amends'] = amends
+
         data['bills'] = linked_bills
         data['lifecycle_events'] = [ev.to_dict() for ev in events]
         data['timeline'] = timeline
