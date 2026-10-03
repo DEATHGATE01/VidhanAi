@@ -28,13 +28,25 @@ HONESTY CONTRACT (mirrors blocked-page-recovery)
   - Archive copies carry their snapshot date as provenance, never passed off as live.
   - Nothing is guessed: a number is written only when two independent sources agree,
     or when the Act's OWN document carries the Gazette header "(NO. X OF YYYY)".
+  - A DERIVED value is labelled as derived. When no source states the in-force
+    status, it is derived from the Act's own assent date and stored with the reason
+    in `acts.status_basis`, so the UI can show "in force" without implying that a
+    source said so.
+
+EXTENDING IT (news, sentiment, ...)
+Sources live in the SOURCES registry below. A new source is a function
+`fn(act, session, ctx) -> {"answer": "<trail line>"}` plus one LookupSource entry,
+tagged with `kinds` so a later pass can select it (`sources_for(("news",))`). The
+trail, storage, corroboration and UI are shared — a source only reads one site.
 """
 from __future__ import annotations
 
 import html
 import re
 import time
+from dataclasses import dataclass
 from datetime import datetime
+from typing import Callable
 
 import requests
 
@@ -144,101 +156,170 @@ def find_act_number_in(text: str, year: int):
     return found
 
 
-def crawl_act(act, session: requests.Session) -> dict:
-    """Run every reachable source for one Act. Returns findings + a trail.
+# ---------------------------------------------------------------------------
+# Source registry
+#
+# Each entry is one place the crawler can look. Adding a source is meant to be a
+# drop-in: write a function `fn(act, session, ctx) -> dict` that reads its own site,
+# writes findings into `ctx` ("answer" is the trail line it reports under), then
+# append a LookupSource to SOURCES below. The trail formatting, the storage on the
+# Act, the corroboration rule and the Act-page UI are all shared, so a new source
+# only has to know how to read one site.
+#
+# FOR THE FUTURE news / sentiment work: give the new source `kinds=("news",)` (or
+# ("sentiment",)) and select it with `sources_for(("news",))`. A pass then collects
+# only the sources it wants; nothing else about the machinery changes.
+# ---------------------------------------------------------------------------
+@dataclass
+class LookupSource:
+    """One lookup route: a label, a function, and what it is useful for."""
 
-    The trail is the point: it is what the UI shows instead of a bare "not found".
-    """
-    title = (act.title or "").replace("Act,", "Act,").strip()
-    year = act.year or datetime.utcnow().year
-    trail: list[dict] = []
-    candidates: dict[int, list[str]] = {}   # act number -> [sources that claim it]
+    name: str
+    run: Callable[..., dict]
+    kinds: tuple = ("act_identity", "bill_number", "status")
 
-    def record(source, answer):
-        trail.append({"source": source, "answer": answer,
-                      "at": datetime.utcnow().strftime("%Y-%m-%d %H:%M")})
 
-    # 1. The Act's OWN document — authoritative. Search its text properly (it is
-    #    the one place a Gazette header "(NO. X OF YYYY)" can be read directly),
-    #    and say plainly when the PDF is still only the Bill text.
-    own_text = None
-    if getattr(act, "pdf_url", None):
-        try:
-            from services.act_dossier import fetch_act_text
-            own_text, pdf_note = fetch_act_text(act, session)
-        except Exception as exc:
-            own_text, pdf_note = None, f"read failed ({type(exc).__name__})"
-        if own_text:
-            nums = find_act_number_in(own_text, year)
-            bill_no = re.search(r"\bBill\s+No\.?\s*([0-9A-Za-z\-]+)\s+of\s+(\d{4})", own_text, re.I)
-            for n in nums:
-                candidates.setdefault(n, []).append("PRS India (Act PDF)")
-            if nums:
-                record("PRS India (the Act's own PDF)",
-                       f"text read; carries the Gazette header for {['No. %d of %d' % (n, year) for n in nums]}")
-            elif bill_no:
-                record("PRS India (the Act's own PDF)",
-                       f"text read; it is still the Bill text (Bill No. {bill_no.group(1)} of "
-                       f"{bill_no.group(2)}) and contains no Act number")
-            else:
-                record("PRS India (the Act's own PDF)",
-                       "text read; no Act number and no Bill number in the text")
-        else:
-            record("PRS India (the Act's own PDF)", pdf_note or "not retrievable")
-    else:
-        record("PRS India (the Act's own PDF)", "no pdf_url on the act row")
+def sources_for(kinds) -> list:
+    """Sources serving any of `kinds` (default: every registered source)."""
+    wanted = set(kinds) if kinds else None
+    return [s for s in SOURCES if wanted is None or (set(s.kinds) & wanted)]
 
-    # 2. Wikipedia (unwalled API).
-    wiki_url, wiki_text, wiki_note = wikipedia_lookup(title, year, session)
-    if wiki_text:
-        nums = find_act_number_in(wiki_text, year)
-        for n in nums:
-            candidates.setdefault(n, []).append("Wikipedia")
-        record("Wikipedia", (f"article found; claims {['No. %d of %d' % (n, year) for n in nums]}"
-                             if nums else "article found, no Act number"))
-    else:
-        record("Wikipedia", wiki_note)
 
-    # 3. India Code — authoritative, and re-checked every run because its ingestion
-    #    lags assent. Reuses the proven matcher (exact title + year + CENTRAL only).
+def _src_act_pdf(act, session, ctx) -> dict:
+    """The Act's own document: authoritative, and the only place the Gazette
+    header '(NO. X OF YYYY)' can be read directly. Also yields the Bill number."""
+    if not getattr(act, "pdf_url", None):
+        return {"answer": "no pdf_url on the act row"}
+    try:
+        from services.act_dossier import fetch_act_text
+        text, note = fetch_act_text(act, session)
+    except Exception as exc:
+        return {"answer": f"read failed ({type(exc).__name__})"}
+    if not text:
+        return {"answer": note or "not retrievable"}
+
+    nums = find_act_number_in(text, ctx["year"])
+    for n in nums:
+        ctx["candidates"].setdefault(n, []).append("PRS India (Act PDF)")
+
+    from services.act_dossier import extract_bill_number
+    bill_number = extract_bill_number(text)
+    if bill_number:
+        ctx["bill_number"] = bill_number
+
+    if nums:
+        return {"answer": "text read; carries the Gazette header for "
+                          f"{['No. %d of %d' % (n, ctx['year']) for n in nums]}"}
+    if bill_number:
+        return {"answer": f"text read; it is still the Bill text (Bill No. "
+                          f"{bill_number}) and contains no Act number"}
+    return {"answer": "text read; no Act number and no Bill number in the text"}
+
+
+def _src_wikipedia(act, session, ctx) -> dict:
+    _url, text, note = wikipedia_lookup(ctx["title"], ctx["year"], session)
+    if not text:
+        return {"answer": note}
+    nums = find_act_number_in(text, ctx["year"])
+    for n in nums:
+        ctx["candidates"].setdefault(n, []).append("Wikipedia")
+    if nums:
+        return {"answer": f"article found; claims "
+                          f"{['No. %d of %d' % (n, ctx['year']) for n in nums]}"}
+    return {"answer": "article found, no Act number"}
+
+
+def _src_india_code(act, session, ctx) -> dict:
+    """Authoritative, and re-checked every run because its ingestion lags assent."""
     try:
         from scripts.maintenance.enrich_indiacode import discover_india_code_record
-        rec, why = discover_india_code_record(session, title, year)
-        if rec:
-            num = rec.get("act_number") if isinstance(rec, dict) else None
-            if num:
-                candidates.setdefault(int(num), []).append("India Code")
-            record("India Code", f"record found; Act No. {num}"
-                                 if num else "record found; no Act number field")
-        else:
-            record("India Code", f"no {year} record — {str(why)[:110]}")
+        rec, why = discover_india_code_record(session, ctx["title"], ctx["year"])
     except Exception as exc:
-        record("India Code", f"check failed ({type(exc).__name__})")
+        return {"answer": f"check failed ({type(exc).__name__})"}
+    if not rec:
+        return {"answer": f"no {ctx['year']} record — {str(why)[:110]}"}
+    ctx["india_code_record"] = rec
+    num = rec.get("act_number") if isinstance(rec, dict) else None
+    if num:
+        ctx["candidates"].setdefault(int(num), []).append("India Code")
+        return {"answer": f"record found; Act No. {num}"}
+    return {"answer": "record found; no Act number field"}
 
-    # 4. eGazette — the body that assigns numbers. Session-gated ASP.NET, and its
-    #    TLS refuses scripted clients while serving real browsers, so this records
-    #    the attempt honestly instead of pretending the source was checked.
+
+def _src_egazette(act, session, ctx) -> dict:
+    """The body that assigns Act numbers. Session-gated ASP.NET whose TLS refuses
+    scripted clients while serving real browsers — recorded honestly rather than
+    pretending the source was checked."""
     try:
         r = session.get("https://egazette.gov.in/RecentUploads.aspx",
                         params={"Category": 1}, timeout=40)
         ok, reason = _looks_like_the_page(r.text, r.url)
-        record("eGazette (assigns Act numbers)",
-               "reachable; search is a session-scoped postback — number not retrievable unattended"
-               if r.status_code == 200 else f"HTTP {r.status_code}, {reason}")
+        if r.status_code == 200:
+            return {"answer": "reachable; search is a session-scoped postback — "
+                              "number not retrievable unattended"}
+        return {"answer": f"HTTP {r.status_code}, {reason}"}
     except Exception as exc:
-        record("eGazette (assigns Act numbers)",
-               f"refuses scripted clients ({type(exc).__name__}) — reachable only in a real "
-               f"browser session; number not retrievable unattended")
+        return {"answer": f"refuses scripted clients ({type(exc).__name__}) — reachable "
+                          f"only in a real browser session; number not retrievable unattended"}
 
-    # 5. Note the engines we must NOT use, so the trail is not misleading.
-    record("Google / Bing / DuckDuckGo / Mojeek",
-           "bot-walled from this host (captcha or JS-only results); not used as fact sources")
 
-    agreed = {n: srcs for n, srcs in candidates.items() if len(set(srcs)) >= 2}
+def _src_open_engines(act, session, ctx) -> dict:
+    """A note, not a source: the engines we must NOT use, so the trail is not
+    misleading about what was searched."""
+    return {"answer": "bot-walled from this host (captcha or JS-only results); "
+                      "not used as fact sources"}
+
+
+SOURCES: list = [
+    LookupSource("PRS India (the Act's own PDF)", _src_act_pdf),
+    LookupSource("Wikipedia", _src_wikipedia),
+    LookupSource("India Code", _src_india_code),
+    LookupSource("eGazette (assigns Act numbers)", _src_egazette),
+    LookupSource("Google / Bing / DuckDuckGo / Mojeek", _src_open_engines),
+]
+
+
+def crawl_act(act, session: requests.Session, kinds=("act_identity", "bill_number", "status")) -> dict:
+    """Run every relevant source for one Act. Returns findings + a trail.
+
+    The trail is the point: it is what the UI shows instead of a bare "not found".
+    """
+    ctx = {
+        "title": (act.title or "").strip(),
+        "year": act.year or datetime.utcnow().year,
+        "candidates": {},        # act number -> [sources claiming it]
+        "bill_number": None,
+        "india_code_record": None,
+    }
+    trail: list[dict] = []
+
+    for source in sources_for(kinds):
+        try:
+            out = source.run(act, session, ctx)
+            answer = out.get("answer") if isinstance(out, dict) else str(out)
+        except Exception as exc:  # a source must never take the pass down
+            answer = f"check failed ({type(exc).__name__})"
+        trail.append({"source": source.name, "answer": answer,
+                      "at": datetime.utcnow().strftime("%Y-%m-%d %H:%M")})
+
+    agreed = {n: srcs for n, srcs in ctx["candidates"].items() if len(set(srcs)) >= 2}
+
+    derived_status = status_basis = None
+    if "status" in kinds:
+        from services.act_dossier import derive_status
+        derived_status, status_basis = derive_status(act)
+        if derived_status:
+            trail.append({"source": "Status (derived, labelled)",
+                          "answer": status_basis,
+                          "at": datetime.utcnow().strftime("%Y-%m-%d %H:%M")})
+
     return {
-        "candidates": candidates,
+        "candidates": ctx["candidates"],
         "corroborated_number": (sorted(agreed)[0] if agreed else None),
         "corroborated_by": agreed,
+        "bill_number": ctx["bill_number"],
+        "derived_status": derived_status,
+        "status_basis": status_basis,
         "trail": trail,
     }
 

@@ -13,6 +13,10 @@ export default function ActDetailPage() {
   const [expandedBills, setExpandedBills] = useState(new Set())
   const [actSummary, setActSummary] = useState(null)
   const [actSummaryErr, setActSummaryErr] = useState('')
+  // "How it became law": the API assembles this from the linked bills' sourced
+  // PRS events plus the Act's own assent/commencement. It was on file all along;
+  // the page simply never received it.
+  const [timeline, setTimeline] = useState([])
 
   // Fetch act on mount
   useEffect(() => {
@@ -24,6 +28,7 @@ export default function ActDetailPage() {
         if (!cancelled) {
           if (response.success && response.act) {
             setAct(response.act)
+            setTimeline(response.act.timeline || [])
             // Fetch lifecycle for each linked bill
             const bills = response.act.bills || []
             bills.forEach((bill) => {
@@ -118,8 +123,19 @@ export default function ActDetailPage() {
 
   // Which authority a value came from. The header used to hardcode "Source
   // (PRS)" for every act, which mislabelled India Code URLs as PRS ones.
-  const SOURCE_LABELS = { prs_acts: 'PRS India', prs_act_pdf: 'PRS India', indiacode: 'India Code' }
-  const sourceLabel = (s) => SOURCE_LABELS[s] || s || 'source'
+  // Includes the scrapers' internal slugs, which the lifecycle timeline reports
+  // (`prs_billtrack`) — the page must never print a raw slug at the user.
+  const SOURCE_LABELS = {
+    prs: 'PRS India',
+    prs_acts: 'PRS India',
+    prs_act_pdf: 'PRS India (the Act PDF)',
+    prs_billtrack: 'PRS India',
+    indiacode: 'India Code',
+    india_code: 'India Code',
+    egazette: 'eGazette',
+    wikipedia: 'Wikipedia',
+  }
+  const sourceLabel = (s) => SOURCE_LABELS[s] || (s ? String(s).replace(/_/g, ' ') : 'source')
 
   // A missing detail must never render as a bare "not published": the backend
   // stores which sources were searched for it and when (acts.lookup_note /
@@ -137,7 +153,9 @@ export default function ActDetailPage() {
   const missingDetails = [
     !act?.act_number && 'Act number',
     !(act?.status && act.status !== 'unknown') && 'in-force status',
-    !act?.commencement_date && 'commencement date',
+    // A commencement PROVISION ("by notification") is a sourced answer, so it is
+    // only missing when the Act says nothing at all about commencement.
+    !act?.commencement_date && !act?.commencement_note && 'commencement',
   ].filter(Boolean)
 
   if (loading) {
@@ -235,6 +253,16 @@ export default function ActDetailPage() {
               <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 500, color: 'var(--text-1)' }}>
                 {act.act_number}
               </span>
+            ) : act.bill_number ? (
+              /* The gazetted Act number is unpublished, but we hold the Bill number
+                 it came from — the same law under its earlier name. Showing that is
+                 worth far more than "not found", and it is labelled as what it is. */
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-2)' }}>
+                not yet published; this Act came from{' '}
+                <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-1)' }}>
+                  Bill No. {act.bill_number}
+                </span>
+              </span>
             ) : (
               <MissingDetail />
             )}
@@ -242,9 +270,17 @@ export default function ActDetailPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <span style={{ color: 'var(--text-3)' }}>Status:</span>
             {act.status && act.status !== 'unknown' ? (
-              <span className={getStatusBadgeClass(act.status)}>
-                {statusLabel(act.status)}
-              </span>
+              <>
+                <span className={getStatusBadgeClass(act.status)}>
+                  {statusLabel(act.status)}
+                </span>
+                {act.status_basis && (
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-3)' }}
+                        title={act.status_basis}>
+                    derived — see sources checked
+                  </span>
+                )}
+              </>
             ) : (
               <MissingDetail />
             )}
@@ -332,6 +368,41 @@ export default function ActDetailPage() {
           )}
         </div>
       </div>
+
+      {/* How it became law — sourced PRS events from the linked bills plus the
+          Act's own assent and commencement. Undated steps say so; estimates are
+          labelled rather than quietly smoothed over. */}
+      {timeline.length > 0 && (
+        <section style={{ marginBottom: '2rem' }}>
+          <div className="card" style={{ padding: '1.5rem' }}>
+            <h2 style={{ margin: '0 0 0.9rem', fontSize: '1.05rem', fontWeight: 600 }}>
+              How it became law
+            </h2>
+            <ol style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+              {timeline.map((step, i) => (
+                <li key={`${step.event}-${step.date || 'nd'}-${i}`}
+                    style={{ display: 'flex', gap: '0.85rem', paddingBottom: '0.65rem' }}>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem',
+                                 color: 'var(--text-2)', minWidth: '7.5rem' }}>
+                    {step.date ? formatDate(step.date) : 'date not stated'}
+                  </span>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-1)' }}>
+                    {step.label || step.event}
+                    {step.house ? <span style={{ color: 'var(--text-3)' }}> · {step.house}</span> : null}
+                    {step.is_estimated ? <span style={{ color: 'var(--text-3)' }}> · estimated</span> : null}
+                    <span style={{ display: 'block', fontSize: '0.73rem', color: 'var(--text-3)' }}>
+                      {step.stage === 'act'
+                        ? "from the Act's own document"
+                        : `from ${sourceLabel(step.source)}`}
+                      {step.notes && step.stage === 'act' ? ` — ${step.notes}` : ''}
+                    </span>
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+      )}
 
       {/* Summary of the Act itself — generated from the Act's own official text.
           Provenance is stated on screen: which model, which document, how much of

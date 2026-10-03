@@ -468,6 +468,13 @@ class Act(db.Model):
     # force "on such date as the Central Government may appoint", which is a
     # sourced fact from the Act's own text -- far better than "not found".
     commencement_note = db.Column(db.Text)
+    # The Bill number this Act came from, read from the Act's own PDF. It is
+    # the identifier we hold while the gazetted Act number is unpublished.
+    bill_number = db.Column(db.String(50))
+    # How an `in_force` status was arrived at when it was not read from an
+    # authoritative record (e.g. derived from the Act's own assent date), so a
+    # derived status can be labelled as derived in the UI.
+    status_basis = db.Column(db.Text)
     full_text = db.Column(db.Text)
     date_scraped = db.Column(db.DateTime, default=datetime.utcnow)
     last_updated = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -495,6 +502,8 @@ class Act(db.Model):
             'pdf_url': self.pdf_url,
             'evidence': self.evidence,
             'commencement_note': self.commencement_note,
+            'bill_number': self.bill_number,
+            'status_basis': self.status_basis,
             'lookup_note': self.lookup_note,
             'details_checked_at': self.details_checked_at.isoformat() if self.details_checked_at else None,
             'date_scraped': self.date_scraped.isoformat() if self.date_scraped else None,

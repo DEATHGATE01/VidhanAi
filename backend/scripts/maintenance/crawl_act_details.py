@@ -72,7 +72,8 @@ def main() -> int:
             acts = acts[: args.limit]
         print(f"acts to crawl: {len(acts)}")
 
-        stats = {"number_found": 0, "already_held": 0, "status_found": 0, "nothing": 0}
+        stats = {"number_found": 0, "already_held": 0, "bill_number": 0,
+                 "status_derived": 0, "nothing": 0}
         for act in acts:
             result = crawl_act(act, session)
             number = result["corroborated_number"]
@@ -94,18 +95,42 @@ def main() -> int:
             shown = (f"No. {number_str}" if number_str else "not corroborated")
             if number_str and not got_number:
                 shown += " (already held)"
-            print(f"  {act.id:3d} {str(act.title)[:44]:44s} | number: {shown:22s} | "
+            bill_number = result.get("bill_number")
+            print(f"  {act.id:3d} {str(act.title)[:38]:38s} | number: {shown:22s} | "
+                  f"bill: {(bill_number or '-'):12s} | "
+                  f"status: {(result.get('derived_status') or act.status or '-'):8s} | "
                   f"sources: {len(result['trail'])}")
 
             if args.dry_run:
                 continue
             act.lookup_note = trail[:4000]
             act.details_checked_at = datetime.utcnow()
+
+            from services.act_dossier import append_evidence
+
             if got_number:
                 act.act_number = number_str
-                from services.act_dossier import append_evidence
                 append_evidence(act, f"Act number No. {number_str} corroborated by "
                                      f"{sorted(set(sum(result['corroborated_by'].values(), [])))}")
+
+            # The Bill number: the identifier we hold while the gazetted Act number
+            # is unpublished. Same law, earlier name — so the page shows something
+            # real instead of "Act No.: not found".
+            bill_number = result.get("bill_number")
+            if bill_number and (act.bill_number or "").strip() != bill_number:
+                act.bill_number = bill_number
+                append_evidence(act, f"Bill number from the Act's own document: "
+                                     f"Bill No. {bill_number}")
+                stats["bill_number"] += 1
+
+            # Status: only ever a LABELLED derivation when no source states it, and
+            # never over an authoritative one (derive_status refuses that).
+            new_status, basis = result.get("derived_status"), result.get("status_basis")
+            if new_status and (act.status or "unknown").lower() != new_status:
+                act.status = new_status
+                act.status_basis = basis
+                append_evidence(act, f"Status derived (labelled): {basis}")
+                stats["status_derived"] += 1
             db.session.commit()
             time.sleep(args.delay)
 
@@ -114,6 +139,10 @@ def main() -> int:
             "SELECT COUNT(*) FROM acts WHERE act_number IS NULL")).scalar(), "/50")
         print("acts with a recorded lookup trail:", db.session.execute(db.text(
             "SELECT COUNT(*) FROM acts WHERE lookup_note LIKE 'Web lookup%'")).scalar(), "/50")
+        print("acts with a stored Bill number:", db.session.execute(db.text(
+            "SELECT COUNT(*) FROM acts WHERE bill_number IS NOT NULL")).scalar(), "/50")
+        print("acts with a derived status    :", db.session.execute(db.text(
+            "SELECT COUNT(*) FROM acts WHERE status_basis IS NOT NULL")).scalar(), "/50")
     return 0
 
 

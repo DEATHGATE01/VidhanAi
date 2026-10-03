@@ -632,8 +632,69 @@ def get_act(act_id):
         events = LifecycleEvent.query.filter_by(act_id=act.id) \
             .order_by(LifecycleEvent.event_date.asc().nullsfirst()).all()
 
+        # "How it became law": the linked bills' sourced PRS events plus the Act's
+        # own assent and commencement. All of this was already in the database but
+        # never reached the Act page, which showed a bare "not found" while the
+        # introduction and passage dates sat on file. Dates are only ever the ones
+        # the sources state; `is_estimated` is carried through, never hidden.
+        timeline = []
+        for link in act.links.all():
+            bill = Bill.query.get(link.bill_id)
+            if not bill:
+                continue
+            for ev in LifecycleEvent.query.filter_by(bill_id=bill.id) \
+                    .order_by(LifecycleEvent.event_date.asc().nullsfirst()).all():
+                timeline.append({
+                    'date': ev.event_date.isoformat() if ev.event_date else None,
+                    'event': ev.event_type,
+                    'label': _lifecycle_event_title(ev),
+                    'house': ev.house,
+                    'source': ev.source,
+                    'is_estimated': bool(ev.is_estimated),
+                    'notes': ev.notes,
+                    'stage': 'bill',
+                    'bill_title': bill.title,
+                })
+        if act.assent_date:
+            timeline.append({
+                'date': act.assent_date.isoformat(),
+                'event': 'president_assent',
+                'label': "Received the President's assent",
+                'house': None,
+                'source': act.source or 'prs_acts',
+                'is_estimated': False,
+                'notes': "Stated in the Act's own document",
+                'stage': 'act',
+            })
+        if act.commencement_date:
+            timeline.append({
+                'date': act.commencement_date.isoformat(),
+                'event': 'commenced',
+                'label': 'Commenced',
+                'house': None,
+                'source': act.source or 'prs_acts',
+                'is_estimated': False,
+                'notes': act.commencement_note or "Stated in the Act's own text",
+                'stage': 'act',
+            })
+        # Order by LOGICAL stage, not raw date: a retrospective commencement carries
+        # an earlier date than the introduction ("deemed to have come into force on
+        # the 2nd day of June, 2024" for an Act assented in 2026), so a pure date
+        # sort puts the last step first. Such a step is marked retrospectively too,
+        # because the date alone would look like an error.
+        stage_rank = {'introduced': 10, 'passed_lok_sabha': 20, 'passed_rajya_sabha': 21,
+                      'passed_both': 22, 'president_assent': 30, 'commenced': 40}
+        for step in timeline:
+            if step['event'] == 'commenced' and act.assent_date and step['date']:
+                if step['date'][:10] < act.assent_date.isoformat()[:10]:
+                    # The label already says "(retrospective)", so the note stays as
+                    # the Act's own wording rather than repeating the point.
+                    step['label'] = 'Commenced (retrospective)'
+        timeline.sort(key=lambda e: (stage_rank.get(e['event'], 50), e['date'] is None, e['date'] or ''))
+
         data['bills'] = linked_bills
         data['lifecycle_events'] = [ev.to_dict() for ev in events]
+        data['timeline'] = timeline
         data['verified_link_count'] = sum(1 for b in linked_bills if b['verified'])
 
         return jsonify({'success': True, 'act': data}), 200

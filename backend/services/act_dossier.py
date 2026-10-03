@@ -181,6 +181,68 @@ def append_evidence(act, fragment: str) -> bool:
     return True
 
 
+_RE_BILL_NO = re.compile(r"\bBill\s+No\.?\s*([0-9A-Za-z\-]+)\s+of\s+(20\d\d)", re.I)
+# Acts carry a plain integer ("NO. 12 OF 2023"); Bill numbers carry a session/version
+# suffix ("No. 139-F of 2026"). That suffix is what tells them apart, and it survives
+# where the words "Bill No." do not: these PDFs are two-column, and the layout can
+# scramble an adjacent phrase into "AMENDMENT BILL, 2026 (AS PASSED BNY oTH...".
+_RE_SUFFIXED_BILL_NO = re.compile(r"\bNo\.?\s*(\d{1,3}-[A-Za-z])\s+of\s+(20\d\d)", re.I)
+
+
+def extract_bill_number(text: str):
+    """Return the Bill number the Act came from, e.g. '105-F of 2026'.
+
+    The Act's own PDF states it (PRS keeps the introduced text in the "Act" file
+    for recent Acts). This matters because the Act NUMBER is assigned by the
+    Gazette and is often unpublished for months, while the Bill number is known
+    from the day it is introduced — it is the same law under its earlier name, so
+    showing it is far better than "Act No.: not found".
+
+    The PRS suffix ('-F' in '105-F of 2026', the as-passed version) is kept: it
+    distinguishes the as-passed text from the as-introduced one, and dropping it
+    would invent a document reference that does not exist.
+
+    The year is whatever the document states, never the Act's own year: a Bill
+    introduced in 2024 and passed in 2025 is numbered in 2024.
+    """
+    if not text:
+        return None
+    flat = " ".join(text.split())
+    m = _RE_BILL_NO.search(flat) or _RE_SUFFIXED_BILL_NO.search(flat)
+    return f"{m.group(1)} of {m.group(2)}" if m else None
+
+
+def derive_status(act):
+    """Return (status, basis) for an Act whose status no source states.
+
+    India Code is authoritative for status and has no record for recent years, so
+    the honest choices are "unknown" or a derivation that says it is one. Assent is
+    a sourced fact from the Act's own text, and an assented Act is in force unless
+    a source records its repeal — so we derive `in_force` and record WHY, in words
+    the UI shows next to the badge.
+
+    Never overwrites a status that came from an authoritative record. Returns
+    (None, None) when nothing can be derived.
+    """
+    if (act.status or "").lower() == "in_force" and "india code" in (act.evidence or "").lower():
+        return None, None  # already sourced — a derivation must not replace it
+    if not getattr(act, "assent_date", None):
+        return None, None
+
+    def fmt(value):
+        return value.strftime("%d %b %Y") if hasattr(value, "strftime") else str(value)[:10]
+
+    parts = [f"the Act received the President's assent on {fmt(act.assent_date)}"]
+    if act.commencement_date:
+        parts.append(f"it states its commencement as {fmt(act.commencement_date)}")
+    elif act.commencement_note:
+        parts.append(f"its commencement provision reads: {act.commencement_note.rstrip('.')}")
+    basis = ("Derived, not sourced: " + "; ".join(parts)
+             + ". No source consulted records its repeal, and India Code has no "
+               "record for this year yet.")
+    return "in_force", basis
+
+
 def build_act_summary(act, text: str):
     """Generate a plain-English summary of the Act from its own text.
 
