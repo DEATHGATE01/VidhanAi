@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, ExternalLink, FileText, Scale, CheckCircle, AlertCircle, Info, ChevronDown, ChevronUp, Cpu } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
+import { ArrowLeft, ExternalLink, FileText, Scale, CheckCircle, AlertCircle, Info, ChevronDown, ChevronUp } from 'lucide-react'
 import { getActById, getActSummary, getBillLifecycle } from '../services/api'
 import LifecycleTimeline from '../components/LifecycleTimeline'
 
@@ -404,31 +405,35 @@ export default function ActDetailPage() {
         </section>
       )}
 
-      {/* Summary of the Act itself — generated from the Act's own official text.
-          Provenance is stated on screen: which model, which document, how much of
-          it, and the reminder that this is an explanation, not the law. */}
+      {/* Summary of the Act itself — rendered exactly like a bill summary on
+          /explore (react-markdown inside .markdown-body), because it is the same
+          kind of content and should read the same way.
+
+          The model and 'generative' chips are deliberately NOT shown here: the
+          reader wants the explanation, not the pipeline. Provenance is not lost —
+          the source document, its size and the "not the law" caveat stay in the
+          line below, and the full record (model_version, source_url) is on the API.
+          The one badge that remains is the honesty one: a rule-based extractive
+          summary is labelled as not AI-generated, as on the bills panel. */}
       <section style={{ marginBottom: '2rem' }}>
         <div className="card" style={{ padding: '1.5rem' }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center', marginBottom: '0.85rem' }}>
             <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 600 }}>
               Summary of this Act
             </h2>
-            {actSummary?.model_version && (
-              <span className="chip" title="Model that produced this summary">
-                <Cpu size={11} /> {actSummary.model_version}
-              </span>
-            )}
-            {actSummary?.summary_type && (
-              <span className="chip" title="How the summary text was produced">
-                {actSummary.summary_type}
+            {actSummary && (actSummary.summary_type === 'extractive'
+                            || /rule_based/i.test(actSummary.model_version || '')) && (
+              <span className="badge badge-amber"
+                    title="No LLM backend produced output when this was generated — it is a rule-based extraction, not a model answer.">
+                Rule-based extractive summary — not AI-generated
               </span>
             )}
           </div>
 
           {actSummary ? (
             <>
-              <div style={{ fontSize: '0.88rem', lineHeight: 1.65, color: 'var(--text-1)', whiteSpace: 'pre-wrap' }}>
-                {actSummary.summary}
+              <div className="markdown-body">
+                <ReactMarkdown>{actSummary.summary || ''}</ReactMarkdown>
               </div>
               <p style={{ margin: '1rem 0 0', fontSize: '0.74rem', color: 'var(--text-3)', lineHeight: 1.5 }}>
                 Generated from this Act&apos;s own official text
@@ -441,9 +446,8 @@ export default function ActDetailPage() {
                     {')'}
                   </>
                 ) : null}
-                {actSummary.generated_at ? `, ${formatDate(actSummary.generated_at)}` : ''}
                 {actSummary.text_chars ? ` · ${actSummary.text_chars.toLocaleString('en-IN')} characters of source text` : ''}.
-                This is a model-written explanation, not the text of the law — check the Act itself before relying on it.
+                A plain-English explanation, not the text of the law — check the Act itself before relying on it.
               </p>
             </>
           ) : (
