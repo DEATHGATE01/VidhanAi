@@ -74,7 +74,53 @@ def _metadata_value(ind, *keys):
     return None
 
 
-def discover_parent_history(parent_title, parent_year, session, size=50, timeout=45):
+def _fetch_all_pages(session, query, size=50, max_pages=10, timeout=45):
+    """Read EVERY page of a catalogue query, not just the first.
+
+    India Code paginates its results, so the old single request saw only the first 50
+    records for a statute's name and silently truncated rich histories (the RBI Act
+    showed 4 of its 15+ chapters). This walks the pages until the reported total is
+    reached — or until max_pages, which is reported back as `truncated` so the caller
+    can say the list may be incomplete instead of implying it is complete.
+
+    Returns (records, info) where info = {seen, total, pages, total_pages, truncated}.
+    """
+    records, page, info = [], 0, {"seen": 0, "total": None, "pages": 0, "total_pages": None,
+                                  "truncated": False}
+    while page < max_pages:
+        try:
+            resp = session.get(DISCOVER, params={"query": query, "size": size, "page": page},
+                               timeout=timeout)
+        except Exception:
+            info["truncated"] = True
+            break
+        if resp.status_code != 200:
+            info["truncated"] = True
+            break
+        try:
+            payload = resp.json()
+        except ValueError:
+            info["truncated"] = True
+            break
+        result = (payload.get("_embedded") or {}).get("searchResult") or {}
+        page_info = result.get("page") or {}
+        objects = ((result.get("_embedded") or {}).get("objects")) or []
+        if not objects:
+            break
+        info["total"] = page_info.get("totalElements", info["total"])
+        info["total_pages"] = page_info.get("totalPages", info["total_pages"])
+        info["pages"] += 1
+        records.extend(obj.get("_embedded", {}).get("indexableObject") or {} for obj in objects)
+        info["seen"] = len(records)
+        if info["total"] and len(records) >= info["total"]:
+            break
+        page += 1
+    if info["total_pages"] and info["pages"] < info["total_pages"]:
+        info["truncated"] = True
+    return records, info
+
+
+def discover_parent_history(parent_title, parent_year, session, size=50, max_pages=10, timeout=45):
     """Return (entries, note, source_url) for one parent statute.
 
     entries: [{title, year, act_number, repealed_by, is_parent, handle, url}] — oldest
@@ -95,23 +141,15 @@ def discover_parent_history(parent_title, parent_year, session, size=50, timeout
     query = " ".join(parent_key(parent_title, parent_year).split()[:8])
     url = f"https://indiacode.gov.in/search?query={query.replace(' ', '%20')}"
 
-    try:
-        resp = session.get(DISCOVER, params={"query": query, "size": size}, timeout=timeout)
-    except Exception as exc:                      # network layer, any type
-        return [], f"{SOURCE_LABEL} unreachable ({type(exc).__name__}); history not read", url
-    if resp.status_code != 200:
-        return [], f"{SOURCE_LABEL} returned HTTP {resp.status_code}; history not read", url
-    try:
-        payload = resp.json()
-    except ValueError:
-        return [], f"{SOURCE_LABEL} returned a non-JSON body; history not read", url
-
-    objects = ((((payload.get("_embedded") or {}).get("searchResult") or {})
-                .get("_embedded") or {}).get("objects")) or []
-    seen = len(objects)
+    # Read every page of the result set: a single request truncates rich histories.
+    records, info = _fetch_all_pages(session, query, size=size, max_pages=max_pages, timeout=timeout)
+    if not records:
+        reason = ("the query failed or timed out" if info.get("truncated")
+                  else "nothing is catalogued under that name")
+        return [], f"{SOURCE_LABEL}: searched \"{query}\" — {reason}", url
+    seen = info["seen"]
     entries, skipped, dropped, predated = {}, 0, 0, 0
-    for obj in objects:
-        ind = (obj.get("_embedded") or {}).get("indexableObject") or {}
+    for ind in records:
         title = (_metadata_value(ind, "dc.title") or "").strip()
         if not title:
             dropped += 1
@@ -151,6 +189,10 @@ def discover_parent_history(parent_title, parent_year, session, size=50, timeout
         except (TypeError, ValueError):
             pass
         handle = ind.get("handle")
+        # India Code labels each record with what it is — ACT, ORDINANCE, ORDER,
+        # NOTIFICATION, or one of the parent's parts (SECTION/SCHEDULE/RULE). Keeping the
+        # label lets the UI name the instrument instead of guessing from the title.
+        instrument = (_metadata_value(ind, "dc.identifier.collection") or "").strip() or None
         # India Code often holds the same instrument twice — once plain and once with its
         # number and fate appended ("...Act, 2015" vs "...Act, 2015, 12 of 2015, (Rep., Act
         # 31 of 2019)"). Both the number and the repeal are shown as their own fields, so
@@ -168,6 +210,7 @@ def discover_parent_history(parent_title, parent_year, session, size=50, timeout
                 "year": resolved_year,
                 "act_number": act_number,
                 "repealed_by": repealed_by,
+                "instrument": instrument,
                 "is_parent": is_parent,
                 "handle": handle,
                 "url": (ITEM_BASE + handle) if handle else url,
@@ -179,16 +222,20 @@ def discover_parent_history(parent_title, parent_year, session, size=50, timeout
                 existing["act_number"] = act_number
             if repealed_by and not existing.get("repealed_by"):
                 existing["repealed_by"] = repealed_by
+            if instrument and not existing.get("instrument"):
+                existing["instrument"] = instrument
             if len(display_title) < len(existing.get("title") or ""):
                 existing["title"] = display_title
 
     out = sorted(entries.values(), key=lambda e: (e["year"] or "9999", e["title"]))
-    detail = (f"{seen} records read, {skipped} unrelated or section-level, "
+    detail = (f"{seen} records read over {info['pages']} "
+              f"page{'' if info['pages'] == 1 else 's'}, {skipped} unrelated or section-level, "
               f"{predated} predating the statute, {dropped} untitled")
+    if info.get("truncated"):
+        detail += ("; the result set was larger than this read, so the list may be incomplete")
     if not out:
         return [], (f"{SOURCE_LABEL}: searched \"{query}\" — {detail}; none of them an amending "
                     f"Act or Ordinance for this statute"), url
     kept = ", ".join(f"{e['act_number'] or 'no number'} ({e['year'] or 'year not stated'})" for e in out)
     return out, (f"{SOURCE_LABEL}: {len(out)} amending instrument(s) catalogued against this "
-                 f"statute — {kept} ({detail}). Catalogue search covers the first {size} records "
-                 f"for the name, so an older amendment may not be listed."), url
+                 f"statute — {kept} ({detail})."), url

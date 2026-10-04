@@ -147,6 +147,21 @@ export default function ActDetailPage() {
   }
   const sourceLabel = (s) => SOURCE_LABELS[s] || (s ? String(s).replace(/_/g, ' ') : 'source')
 
+  // India Code labels each catalogue record by kind (ACT_AMENDMENT, CENTRAL_ORDINANCE,
+  // ORDER, NOTIFICATION). The chain shows it, because an Ordinance or a transitional
+  // Order is a different weight of history from an Act of Parliament — and for the
+  // Andhra Pradesh Act the 2014 Ordinance is exactly that: the instrument the 2014
+  // amendment Act replaced.
+  const INSTRUMENT_LABELS = {
+    ACT: 'Act',
+    ACT_AMENDMENT: 'Act',
+    CENTRAL_ORDINANCE: 'Ordinance',
+    ORDINANCE: 'Ordinance',
+    ORDER: 'Order',
+    NOTIFICATION: 'Notification',
+  }
+  const instrumentLabel = (i) => INSTRUMENT_LABELS[i] || (i ? String(i).replace(/_/g, ' ').toLowerCase() : null)
+
   // A missing detail must never render as a bare "not published": the backend
   // stores which sources were searched for it and when (acts.lookup_note /
   // details_checked_at), so the field says a search happened and the trail is
@@ -477,6 +492,9 @@ export default function ActDetailPage() {
                               </a>
                               {chapter.act_number ? (
                                 <span style={{ color: 'var(--text-2)' }}> · {chapter.act_number}</span>
+                              ) : null}
+                              {instrumentLabel(chapter.instrument) ? (
+                                <span style={{ color: 'var(--text-3)' }}> · {instrumentLabel(chapter.instrument)}</span>
                               ) : null}
                               {chapter.repealed_by ? (
                                 <span style={{ color: 'var(--text-3)' }}> · repealed by {chapter.repealed_by}</span>
