@@ -2030,16 +2030,22 @@ def amendment_diff():
 
     Body (JSON):
       {
-        "bill_id_v1": str,          # bill_id string of the older bill
-        "bill_id_v2": str,          # bill_id string of the newer bill
+        "bill_id_v1": str,          # older document: its ID (slug) OR its title
+        "bill_id_v2": str,          # newer document: its ID (slug) OR its title
         "text_v1":    str | null,   # optional: raw text override for v1
         "text_v2":    str | null    # optional: raw text override for v2
       }
+
+    Each side resolves to a Bill (bill_id) or an Act (act_id) — the two describe the
+    same instrument at different stages, and comparing them is what this screen is for.
+    A title matching more than one document returns 409 with "candidates" to choose from.
 
     Returns:
       {
         "success": true,
         "title_v1", "title_v2",
+        "kind_v1", "kind_v2",       # "bill" | "act" — what each side resolved to
+        "query_v1", "query_v2",     # the raw text the caller submitted
         "added_sections", "removed_sections", "modified_sections",
         "facts_added", "facts_removed",
         "stats": {...},
@@ -2049,78 +2055,157 @@ def amendment_diff():
       }
     """
     try:
+        # Act is imported per-function in this module (see the /acts routes), not at
+        # module level — follow that convention rather than inventing a new one.
+        from models import Act
         data = request.get_json(silent=True) or {}
-        bill_id_v1 = (data.get("bill_id_v1") or "").strip()
-        bill_id_v2 = (data.get("bill_id_v2") or "").strip()
+        query_v1 = (data.get("bill_id_v1") or "").strip()
+        query_v2 = (data.get("bill_id_v2") or "").strip()
+        bill_id_v1 = query_v1
+        bill_id_v2 = query_v2
         text_v1 = data.get("text_v1") or ""
         text_v2 = data.get("text_v2") or ""
 
-        # Validate bill_id format - only alphanumeric, hyphens, underscores allowed
+        # Resolve each side to a document. The form asks for a bill, but people type what
+        # they know — "andhra pradesh reorganisation act 2026" is a title, and answering it
+        # with the name of an internal parameter ("bill_id_v1 contains invalid characters")
+        # helped nobody. An ID or a title are both accepted, and an Act is as valid a side
+        # of a diff as a Bill: they are the same instrument at different stages, which is
+        # exactly what this screen exists to compare.
         import re
-        BILL_ID_PATTERN = re.compile(r'^[a-zA-Z0-9_-]{1,200}$')
+        ID_PATTERN = re.compile(r'^[a-zA-Z0-9_-]{1,200}$')
+        # Words that carry no identifying weight. "act" and "bill" are BOTH dropped: they
+        # describe the same instrument at different stages, so "…act 2026" and
+        # "…(Amendment) Bill, 2026" must still match each other.
+        _FILLER = {"the", "act", "bill", "of", "and", "a", "an"}
 
-        def validate_bill_id(bill_id: str, field_name: str) -> tuple[bool, str]:
-            if not bill_id:
-                return False, f"{field_name} is required"
-            if len(bill_id) > 200:
-                return False, f"{field_name} exceeds maximum length of 200 characters"
-            if not BILL_ID_PATTERN.match(bill_id):
-                return False, f"{field_name} contains invalid characters. Only alphanumeric, hyphens, and underscores allowed."
-            # Check for path traversal attempts
-            if '..' in bill_id or '/' in bill_id or '\\' in bill_id:
-                return False, f"{field_name} contains invalid path sequences"
-            return True, ""
+        def _tokens(value: str):
+            return [t for t in re.findall(r"[a-z0-9]+", (value or "").lower()) if t not in _FILLER]
 
-        if bill_id_v1:
-            valid, msg = validate_bill_id(bill_id_v1, "bill_id_v1")
-            if not valid:
-                return jsonify({"error": msg}), 400
+        def _doc_id(kind: str, obj):
+            return getattr(obj, "bill_id" if kind == "bill" else "act_id", None)
 
-        if bill_id_v2:
-            valid, msg = validate_bill_id(bill_id_v2, "bill_id_v2")
-            if not valid:
-                return jsonify({"error": msg}), 400
+        def _doc_text(kind: str, obj):
+            return (obj.content.full_text if obj.content else None) if kind == "bill" else obj.full_text
+
+        def _as_candidate(kind: str, obj):
+            return {"kind": kind, "id": _doc_id(kind, obj), "title": obj.title,
+                    "year": getattr(obj, "year", None)}
+
+        def _split_error(message: str, candidates=()):
+            payload = {"error": message}
+            if candidates:
+                payload["candidates"] = list(candidates)
+            return payload
+
+        def _match_by_title(raw: str):
+            """Documents whose title contains every significant word the user typed."""
+            tokens = _tokens(raw)
+            if len(tokens) < 2:
+                return []                      # too vague to resolve safely
+            wants_act = "act" in (raw or "").lower()
+            hits = []
+            for model, kind in ((Bill, "bill"), (Act, "act")):
+                for row in model.query.all():
+                    if row.title and set(tokens) <= set(_tokens(row.title)):
+                        hits.append((kind, row))
+            # Prefer the kind the user named, then the shortest title (most specific).
+            hits.sort(key=lambda h: ((h[0] == "act") != wants_act, len(h[1].title or "")))
+            return hits
+
+        def resolve(raw: str, position: str):
+            """(kind, obj, text, title, error_payload, status) for one side of the diff."""
+            label = "The older document" if position == "v1" else "The newer document"
+            if not raw:
+                return None, None, None, None, _split_error(f"{label} is required — a title or an ID."), 400
+            if len(raw) > 200:
+                return None, None, None, None, _split_error(f"{label} is longer than 200 characters."), 400
+            # Value-injection guards are kept, but they are OUR concern, not the user's:
+            # the message says what to fix rather than naming a variable.
+            if ".." in raw or "/" in raw or "\\" in raw:
+                return None, None, None, None, _split_error(
+                    f"{label} contains characters that are not allowed."), 400
+
+            kind = obj = None
+            bill = Bill.query.filter_by(bill_id=raw).first()
+            if bill is not None:
+                kind, obj = "bill", bill
+            else:
+                act = Act.query.filter_by(act_id=raw).first()
+                if act is not None:
+                    kind, obj = "act", act
+
+            if obj is None:
+                hits = _match_by_title(raw)
+                if len(hits) > 1:
+                    # The same law is often tracked twice — as the Bill that was introduced
+                    # and as the Act it became. Their titles differ only by that stage word,
+                    # which _tokens drops, so identical token sets mean "same law, two
+                    # stages": take the stage the user named instead of asking them to
+                    # choose between two names for one thing.
+                    token_sets = {frozenset(_tokens(h[1].title)) for h in hits}
+                    if len(token_sets) == 1:
+                        hits = hits[:1]
+                if len(hits) == 1:
+                    kind, obj = hits[0]
+                elif len(hits) > 1:
+                    return None, None, None, None, _split_error(
+                        f"{label} matches more than one document — pick one.",
+                        [_as_candidate(k, o) for k, o in hits[:6]]), 409
+                else:
+                    hint = (" That looks like an ID, but nothing here has it."
+                            if ID_PATTERN.match(raw) else "")
+                    return None, None, None, None, _split_error(
+                        f"{label} did not match a tracked bill or Act: \"{raw}\".{hint} "
+                        f"Give the title as this dataset spells it, or the ID "
+                        f"(e.g. the-andhra-pradesh-reorganisation-amendment-bill-2026). "
+                        f"Note only documents in this dataset can be diffed — a statute's "
+                        f"earlier parent Act is shown on its page under \"Statute history\" "
+                        f"but its own text is not stored here."), 404
+
+            text = _doc_text(kind, obj)
+            if not text:
+                return kind, obj, None, obj.title, _split_error(
+                    f"{label} ({obj.title}) has no stored text to diff. "
+                    f"Pass text_{position} in the request body to compare manually."), 422
+            return kind, obj, text, obj.title, None, 200
+
+        # A side may be named (ID/title → resolved from the DB) or supplied as raw text.
+        # Only resolve when something was actually named, so the text_v*/text-only path
+        # this endpoint has always supported keeps working.
+        if query_v1:
+            kind_v1, doc1, resolved_text1, title_v1, err1, status1 = resolve(query_v1, "v1")
+            if err1:
+                # "field" tells the UI which input to attach any candidates to.
+                return jsonify({**err1, "field": "v1"}), status1
+        else:
+            kind_v1, doc1, resolved_text1, title_v1 = None, None, None, ""
+        if query_v2:
+            kind_v2, doc2, resolved_text2, title_v2, err2, status2 = resolve(query_v2, "v2")
+            if err2:
+                return jsonify({**err2, "field": "v2"}), status2
+        else:
+            kind_v2, doc2, resolved_text2, title_v2 = None, None, None, ""
+
+        # A resolved document's own text wins; text_* remains a manual override for
+        # callers that pass raw text instead of an ID/title.
+        if resolved_text1:
+            bill_id_v1 = _doc_id(kind_v1, doc1)
+            text_v1 = resolved_text1
+        if resolved_text2:
+            bill_id_v2 = _doc_id(kind_v2, doc2)
+            text_v2 = resolved_text2
 
         # Validate text input lengths to prevent DoS
         if text_v1 and len(text_v1) > 50000:
-            return jsonify({"error": "text_v1 too long. Maximum 50000 characters."}), 413
+            return jsonify({"error": "The older document's text is too long. Maximum 50000 characters."}), 413
         if text_v2 and len(text_v2) > 50000:
-            return jsonify({"error": "text_v2 too long. Maximum 50000 characters."}), 413
+            return jsonify({"error": "The newer document's text is too long. Maximum 50000 characters."}), 413
 
-        if not bill_id_v1 and not text_v1:
-            return jsonify({"error": "bill_id_v1 or text_v1 is required"}), 400
-        if not bill_id_v2 and not text_v2:
-            return jsonify({"error": "bill_id_v2 or text_v2 is required"}), 400
-
-        title_v1 = bill_id_v1
-        title_v2 = bill_id_v2
-
-        # Resolve bill texts from DB when IDs provided (override any passed text)
-        if bill_id_v1:
-            b1 = Bill.query.filter_by(bill_id=bill_id_v1).first()
-            if b1 is None:
-                return jsonify({"error": f"Bill not found: {bill_id_v1}"}), 404
-            title_v1 = b1.title
-            if b1.content and b1.content.full_text:
-                text_v1 = b1.content.full_text
-            elif not text_v1:
-                return jsonify({
-                    "error": f"Bill '{bill_id_v1}' has no full_text in the DB. "
-                             "Pass text_v1 in the request body to diff manually."
-                }), 422
-
-        if bill_id_v2:
-            b2 = Bill.query.filter_by(bill_id=bill_id_v2).first()
-            if b2 is None:
-                return jsonify({"error": f"Bill not found: {bill_id_v2}"}), 404
-            title_v2 = b2.title
-            if b2.content and b2.content.full_text:
-                text_v2 = b2.content.full_text
-            elif not text_v2:
-                return jsonify({
-                    "error": f"Bill '{bill_id_v2}' has no full_text in the DB. "
-                             "Pass text_v2 in the request body to diff manually."
-                }), 422
+        if not text_v1:
+            return jsonify({"error": "The older document is required — give a title, an ID, or text_v1."}), 400
+        if not text_v2:
+            return jsonify({"error": "The newer document is required — give a title, an ID, or text_v2."}), 400
 
         # Run the pure-Python structural diff (no LLM cost)
         from services.amendment_service import diff_bills, diff_summary_text
@@ -2146,6 +2231,10 @@ def amendment_diff():
             "success": True,
             "bill_id_v1": bill_id_v1,
             "bill_id_v2": bill_id_v2,
+            "kind_v1": kind_v1,
+            "kind_v2": kind_v2,
+            "query_v1": query_v1,
+            "query_v2": query_v2,
             "title_v1": title_v1,
             "title_v2": title_v2,
             "added_sections": _trim_sections(diff["added_sections"]),

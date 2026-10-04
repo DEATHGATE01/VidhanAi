@@ -27,10 +27,26 @@ export default function AmendmentsPage() {
       const data = await diffAmendments(v1.trim(), v2.trim())
       setResult(data)
     } catch (err) {
-      setError(err?.response?.data?.error || err?.message || 'Diff failed')
+      // 409 "matches more than one document" comes back with candidates to click.
+      const data = err?.response?.data
+      setError(
+        data?.error
+          ? { message: data.error, candidates: data.candidates || [], field: data.field || 'v1' }
+          : { message: err?.message || 'Diff failed', candidates: [] }
+      )
     } finally {
       setLoading(false)
     }
+  }
+
+  // Fill a field from a suggested document (kind + id come from the API).
+  // Named apply* not use* — a `useX` name makes the rules-of-hooks linter treat this as
+  // a hook, which cannot then be called from an onClick callback.
+  const applyCandidate = (candidate) => {
+    const value = candidate.id
+    if (error?.field === 'v2') setV2(value)
+    else setV1(value)
+    setError(null)
   }
 
   return (
@@ -40,38 +56,62 @@ export default function AmendmentsPage() {
           ⚖️ Amendment Diff
         </h1>
         <p style={{ color: 'var(--text-2)', fontSize: '0.85rem', margin: 0 }}>
-          Delta-aware structural + factual diff between two bills · pure-Python engine, LLM narrative layer
+          Delta-aware structural + factual diff between two bills or Acts · pure-Python engine, LLM narrative layer
         </p>
       </header>
 
       {/* Diff form */}
       <form onSubmit={handleDiff} className="glass-panel" style={{ borderRadius: 16, padding: '1.25rem', marginBottom: '1.5rem' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto minmax(0,1fr)', gap: '0.75rem', alignItems: 'center', marginBottom: '1rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto minmax(0,1fr)', gap: '0.75rem', alignItems: 'center', marginBottom: '0.5rem' }}>
           <input
             value={v1}
             onChange={(e) => setV1(e.target.value)}
-            placeholder="Older bill slug (v1) — e.g. criminal-procedure-code-2022"
+            placeholder="Older — title or ID, e.g. andhra pradesh reorganisation act 2014"
             className="premium-input"
-            style={{ width: '100%', padding: '0.7rem 1rem', fontSize: '0.85rem', fontFamily: 'JetBrains Mono, monospace' }}
-            aria-label="Older bill id"
+            style={{ width: '100%', padding: '0.7rem 1rem', fontSize: '0.85rem' }}
+            aria-label="Older bill or Act"
           />
           <span style={{ color: 'var(--accent)', fontWeight: 800, fontSize: '1.2rem' }}>→</span>
           <input
             value={v2}
             onChange={(e) => setV2(e.target.value)}
-            placeholder="Newer bill slug (v2) — e.g. central-universities-amendment-2023"
+            placeholder="Newer — title or ID, e.g. andhra pradesh reorganisation act 2026"
             className="premium-input"
-            style={{ width: '100%', padding: '0.7rem 1rem', fontSize: '0.85rem', fontFamily: 'JetBrains Mono, monospace' }}
-            aria-label="Newer bill id"
+            style={{ width: '100%', padding: '0.7rem 1rem', fontSize: '0.85rem' }}
+            aria-label="Newer bill or Act"
           />
         </div>
+        <p style={{ color: 'var(--text-3)', fontSize: '0.75rem', margin: '0 0 1rem' }}>
+          Type the title as you know it (spaces are fine) or the document's ID — a Bill and the Act it became
+          are both accepted, and either side can be one of each.
+        </p>
         <button type="submit" disabled={loading || !v1.trim() || !v2.trim()} className="btn btn-primary" style={{ padding: '0.7rem 1.6rem', fontSize: '0.9rem' }}>
           {loading ? <><span className="spinner-ring" /> Computing delta…</> : '⚖️ Compute Diff'}
         </button>
         {error && (
-          <p role="alert" style={{ marginTop: '0.85rem', color: 'var(--danger)', fontSize: '0.85rem', marginBottom: 0 }}>
-            ⚠️ {error}
-          </p>
+          <div role="alert" style={{ marginTop: '0.85rem' }}>
+            <p style={{ color: 'var(--danger)', fontSize: '0.85rem', margin: 0 }}>⚠️ {error.message}</p>
+            {error.candidates?.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.6rem' }}>
+                {error.candidates.map((c) => (
+                  <button
+                    key={`${c.kind}-${c.id}`}
+                    type="button"
+                    onClick={() => applyCandidate(c)}
+                    title={`Use this ${c.kind}: ${c.id}`}
+                    style={{
+                      cursor: 'pointer', font: 'inherit', fontSize: '0.75rem', textAlign: 'left',
+                      padding: '0.4rem 0.65rem', borderRadius: 8, color: 'var(--text-1)',
+                      background: 'var(--surface-2)', border: '1px solid var(--border-1)',
+                    }}
+                  >
+                    {c.kind === 'act' ? '⚖️ Act' : '📜 Bill'}
+                    {' · '}{c.title}{c.year ? ` (${c.year})` : ''}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         )}
       </form>
 
@@ -83,8 +123,10 @@ export default function AmendmentsPage() {
         <div className="animate-fade-in">
           {/* Titles */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'baseline', marginBottom: '1rem' }}>
+            <KindTag kind={result.kind_v1} />
             <strong style={{ color: 'var(--text-1)' }}>{result.title_v1}</strong>
             <span style={{ color: 'var(--accent)' }}>→</span>
+            <KindTag kind={result.kind_v2} />
             <strong style={{ color: 'var(--text-1)' }}>{result.title_v2}</strong>
             <span className="badge badge-vidhan" style={{ marginLeft: 'auto' }}>model: {result.model_version}</span>
           </div>
@@ -131,6 +173,23 @@ export default function AmendmentsPage() {
         </div>
       )}
     </div>
+  )
+}
+
+// Which document each side actually resolved to — the title alone can't say whether the
+// diff compared a Bill, an Act, or one of each.
+function KindTag({ kind }) {
+  if (!kind) return null
+  return (
+    <span
+      className="badge"
+      style={{
+        fontSize: '0.68rem', background: 'var(--surface-2)', color: 'var(--text-2)',
+        border: '1px solid var(--border-1)', whiteSpace: 'nowrap',
+      }}
+    >
+      {kind === 'act' ? '⚖️ Act' : '📜 Bill'}
+    </span>
   )
 }
 
