@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { diffAmendments } from '../services/api'
 
 // Delta-aware amendment diff UI — POST /api/amendment/diff.
@@ -10,9 +11,18 @@ const STATS_LABELS = {
   similarity: 'Overall Similarity',
 }
 
+// What each side of the diff can be: the Bill as introduced, the Act it became, or a
+// statute an Act amends (whose own text is read from India Code).
+const KIND_LABELS = { bill: '📜 Bill', act: '⚖️ Act', statute: '🏛️ Statute' }
+const kindLabel = (kind) => KIND_LABELS[kind] || '📄 Document'
+
 export default function AmendmentsPage() {
-  const [v1, setV1] = useState('')
-  const [v2, setV2] = useState('')
+  const [searchParams] = useSearchParams()
+  // The Act page deep-links here with both sides chosen (v1 = the statute as it stood,
+  // v2 = the Act that amends it). Prefilled, not auto-run — the diff spends an LLM
+  // call, so the user presses the button.
+  const [v1, setV1] = useState(() => searchParams.get('v1') || '')
+  const [v2, setV2] = useState(() => searchParams.get('v2') || '')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [result, setResult] = useState(null)
@@ -56,7 +66,7 @@ export default function AmendmentsPage() {
           ⚖️ Amendment Diff
         </h1>
         <p style={{ color: 'var(--text-2)', fontSize: '0.85rem', margin: 0 }}>
-          Delta-aware structural + factual diff between two bills or Acts · pure-Python engine, LLM narrative layer
+          Delta-aware structural + factual diff between a bill, the Act it became, or a statute an Act amends · pure-Python engine, LLM narrative layer
         </p>
       </header>
 
@@ -82,8 +92,9 @@ export default function AmendmentsPage() {
           />
         </div>
         <p style={{ color: 'var(--text-3)', fontSize: '0.75rem', margin: '0 0 1rem' }}>
-          Type the title as you know it (spaces are fine) or the document's ID — a Bill and the Act it became
-          are both accepted, and either side can be one of each.
+          Type the title as you know it (spaces are fine) or the document's ID — a Bill, the Act it
+          became, or a statute an Act amends. Either side can be any of the three, so "the 2026 Act
+          against the 2014 statute it changes" is a comparison this screen can actually run.
         </p>
         <button type="submit" disabled={loading || !v1.trim() || !v2.trim()} className="btn btn-primary" style={{ padding: '0.7rem 1.6rem', fontSize: '0.9rem' }}>
           {loading ? <><span className="spinner-ring" /> Computing delta…</> : '⚖️ Compute Diff'}
@@ -105,7 +116,7 @@ export default function AmendmentsPage() {
                       background: 'var(--surface-2)', border: '1px solid var(--border-1)',
                     }}
                   >
-                    {c.kind === 'act' ? '⚖️ Act' : '📜 Bill'}
+                    {kindLabel(c.kind)}
                     {' · '}{c.title}{c.year ? ` (${c.year})` : ''}
                   </button>
                 ))}
@@ -130,6 +141,19 @@ export default function AmendmentsPage() {
             <strong style={{ color: 'var(--text-1)' }}>{result.title_v2}</strong>
             <span className="badge badge-vidhan" style={{ marginLeft: 'auto' }}>model: {result.model_version}</span>
           </div>
+
+          {/* When a whole statute was compared with an amending instrument the section
+              counts are not a list of changes, so say so before showing them. */}
+          {result.comparison_note && (
+            <div className="glass-panel rounded-2xl" style={{ padding: '0.9rem 1.1rem', marginBottom: '1.1rem', borderLeft: '3px solid var(--warn, #d97706)' }}>
+              <strong style={{ fontSize: '0.82rem', display: 'block', marginBottom: '0.3rem', color: 'var(--text-1)' }}>
+                What this comparison is
+              </strong>
+              <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-2)', lineHeight: 1.6 }}>
+                {result.comparison_note}
+              </p>
+            </div>
+          )}
 
           {/* Stats row */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.75rem', marginBottom: '1.25rem' }}>
@@ -188,7 +212,7 @@ function KindTag({ kind }) {
         border: '1px solid var(--border-1)', whiteSpace: 'nowrap',
       }}
     >
-      {kind === 'act' ? '⚖️ Act' : '📜 Bill'}
+      {kindLabel(kind)}
     </span>
   )
 }

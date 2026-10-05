@@ -635,12 +635,20 @@ class StatuteHistory(db.Model):
     note = db.Column(db.Text)           # how it was read + what was left out
     source_url = db.Column(db.String(500))
     checked_at = db.Column(db.DateTime, default=datetime.utcnow)
+    # The parent's OWN text, so the diff can compare an Act against the statute it
+    # amends instead of only against the bill that produced it. Provenance travels
+    # with the text — "this is the statute, as India Code holds it" is a claim the
+    # page has to be able to back up.
+    full_text = db.Column(db.Text)
+    text_source_url = db.Column(db.String(500))
+    text_source_label = db.Column(db.String(200))
+    text_checked_at = db.Column(db.DateTime)
 
     def __repr__(self):
         return f'<StatuteHistory {self.parent_key}: {self.parent_title}>'
 
-    def to_dict(self):
-        return {
+    def to_dict(self, include_text=False):
+        data = {
             'parent_key': self.parent_key,
             'parent_title': self.parent_title,
             'parent_year': self.parent_year,
@@ -648,4 +656,12 @@ class StatuteHistory(db.Model):
             'note': self.note,
             'source_url': self.source_url,
             'checked_at': self.checked_at.isoformat() if self.checked_at else None,
+            'has_text': bool((self.full_text or '').strip()),
+            'text_source_url': self.text_source_url,
+            'text_source_label': self.text_source_label,
+            'text_chars': len(self.full_text or ''),
         }
+        # The text itself is large; callers that need it ask explicitly.
+        if include_text:
+            data['full_text'] = self.full_text
+        return data

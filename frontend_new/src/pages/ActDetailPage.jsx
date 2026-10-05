@@ -453,6 +453,22 @@ export default function ActDetailPage() {
                     <div style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--text-1)' }}>
                       amends {parent.title}, {parent.year}
                     </div>
+                    {/* The parent's own text is stored now, so the comparison this page
+                        describes can actually be run. Deep-link it with both sides
+                        filled: the statute as it stood, and this Act. */}
+                    {parent.history?.has_text && act?.act_id ? (
+                      <div style={{ marginTop: '0.3rem', fontSize: '0.82rem' }}>
+                        <Link
+                          to={`/amendments?v1=${encodeURIComponent(parent.history.parent_key)}&v2=${encodeURIComponent(act.act_id)}`}
+                          style={{ color: 'var(--accent, #2563eb)', fontWeight: 600 }}
+                        >
+                          Compare this Act with {parent.title}, {parent.year} →
+                        </Link>
+                        <span style={{ color: 'var(--text-3)' }}>
+                          {' '}· its text ({Number(parent.history.text_chars || 0).toLocaleString()} characters) was read from India Code
+                        </span>
+                      </div>
+                    ) : null}
                     <div style={{ fontSize: '0.82rem', color: 'var(--text-2)', marginTop: '0.2rem' }}>
                       {parent.cited_act_number ? `No. ${parent.cited_act_number} · ` : ''}
                       {parent.sections && parent.sections.length

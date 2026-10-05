@@ -688,24 +688,63 @@ def generate_change_narrative(diff: dict) -> dict:
     removed_titles = [s['title'] for s in sections_removed]
     modified_titles = [s['title'] for s in sections_modified]
 
-    user_payload = (
-        f"v1: {diff.get('title_v1','')}\n"
-        f"v2: {diff.get('title_v2','')}\n\n"
-        f"STRUCTURAL DIFF STATS (MUST BE ACCURATE IN NARRATIVE):\n"
-        f"  v1 had {stats.get('v1_sections',0)} section(s); v2 has {stats.get('v2_sections',0)} section(s)\n"
-        f"  Sections ADDED in v2 (not in v1): {stats.get('added',0)} — {added_titles if added_titles else 'none'}\n"
-        f"  Sections REMOVED in v2 (were in v1): {stats.get('removed',0)} — {removed_titles if removed_titles else 'none'}\n"
-        f"  Sections MODIFIED (same title, different content): {stats.get('modified',0)} — {modified_titles if modified_titles else 'none'}\n\n"
-        f"FACT CHANGES (penalties, dates, amounts):\n"
-        f"  NEW facts in v2 (not in v1): {facts_added if facts_added else 'none'}\n"
-        f"  OLD facts REMOVED from v1 (not in v2): {facts_removed if facts_removed else 'none'}\n\n"
-        "INSTRUCTIONS:\n"
-        "Write a 3-5 sentence plain-English narrative of what changed between v1 and v2.\n"
-        "MUST accurately reflect the stats above — do NOT contradict the numbers above.\n"
-        "Focus on concrete facts (penalties, dates, jurisdictions) and sections added/removed/modified.\n"
-        "Do NOT say 'added X sections' if stats show different numbers.\n"
-        "Do NOT include meta-commentary about your approach."
-    )
+    # When a whole statute is compared with an amending instrument, the section counts
+    # are arithmetic on unlike things. Hand the model that framing, or it will narrate
+    # "this Act removed 1,032 sections" — a number that is true and a claim that is not.
+    comparison_note = diff.get("comparison_note")
+    framing_block = ""
+    if comparison_note:
+        framing_block = (
+            "WHAT IS BEING COMPARED (READ FIRST — IT GOVERNS HOW THE STATS MAY BE DESCRIBED):\n"
+            f"  {comparison_note}\n"
+            "  Do NOT describe the removed-section count as sections this Act deleted or "
+            "repealed. The amending Act changes the provisions it names; the rest of the "
+            "statute is simply not repeated in the amending instrument.\n\n"
+        )
+
+    if comparison_note:
+        # Unlike-for-unlike comparison: relabel the arithmetic too. Saying "Sections
+        # REMOVED in v2: 1,032" in the prompt invited the model to narrate deletions that
+        # never happened — the number is a count of what the amending instrument does not
+        # repeat, not of what it repeals.
+        user_payload = (
+            f"v1: {diff.get('title_v1','')}\n"
+            f"v2: {diff.get('title_v2','')}\n\n"
+            f"{framing_block}"
+            "STRUCTURAL DIFF STATS (arithmetic over two unlike documents — NOT a change list):\n"
+            f"  v1: {stats.get('v1_sections',0):,} numbered parts; v2: {stats.get('v2_sections',0)} section(s)\n"
+            f"  Parts of v1 that v2 does not repeat: {stats.get('removed',0):,}\n"
+            f"  Provisions appearing only in v2: {stats.get('added',0)} — {added_titles if added_titles else 'none'}\n"
+            f"  Same title, different content: {stats.get('modified',0)} — {modified_titles if modified_titles else 'none'}\n\n"
+            f"FACT CHANGES (years, amounts, penalties):\n"
+            f"  Appearing in v2 only: {facts_added if facts_added else 'none'}\n"
+            f"  Present in v1, not repeated in v2: {facts_removed if facts_removed else 'none'}\n\n"
+            "INSTRUCTIONS:\n"
+            "Write a 3-5 sentence plain-English account of what this instrument does to the statute.\n"
+            "Say which section(s) it names and what it inserts or substitutes.\n"
+            "Do NOT say the Act removed, deleted or repealed the statute's other sections, and do "
+            "NOT report the 'does not repeat' count as a number of deletions.\n"
+            "Do NOT include meta-commentary about your approach."
+        )
+    else:
+        user_payload = (
+            f"v1: {diff.get('title_v1','')}\n"
+            f"v2: {diff.get('title_v2','')}\n\n"
+            "STRUCTURAL DIFF STATS (MUST BE ACCURATE IN NARRATIVE):\n"
+            f"  v1 had {stats.get('v1_sections',0)} section(s); v2 has {stats.get('v2_sections',0)} section(s)\n"
+            f"  Sections ADDED in v2 (not in v1): {stats.get('added',0)} — {added_titles if added_titles else 'none'}\n"
+            f"  Sections REMOVED in v2 (were in v1): {stats.get('removed',0)} — {removed_titles if removed_titles else 'none'}\n"
+            f"  Sections MODIFIED (same title, different content): {stats.get('modified',0)} — {modified_titles if modified_titles else 'none'}\n\n"
+            f"FACT CHANGES (penalties, dates, amounts):\n"
+            f"  NEW facts in v2 (not in v1): {facts_added if facts_added else 'none'}\n"
+            f"  OLD facts REMOVED from v1 (not in v2): {facts_removed if facts_removed else 'none'}\n\n"
+            "INSTRUCTIONS:\n"
+            "Write a 3-5 sentence plain-English narrative of what changed between v1 and v2.\n"
+            "MUST accurately reflect the stats above — do NOT contradict the numbers above.\n"
+            "Focus on concrete facts (penalties, dates, jurisdictions) and sections added/removed/modified.\n"
+            "Do NOT say 'added X sections' if stats show different numbers.\n"
+            "Do NOT include meta-commentary about your approach."
+        )
 
     narrative = ""
     model_version = "rule_based_diff_narrative_v1"

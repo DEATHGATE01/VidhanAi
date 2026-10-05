@@ -2055,9 +2055,9 @@ def amendment_diff():
       }
     """
     try:
-        # Act is imported per-function in this module (see the /acts routes), not at
-        # module level — follow that convention rather than inventing a new one.
-        from models import Act
+        # Act/StatuteHistory are imported per-function in this module (see the /acts
+        # routes), not at module level — follow that convention, don't invent one.
+        from models import Act, StatuteHistory
         data = request.get_json(silent=True) or {}
         query_v1 = (data.get("bill_id_v1") or "").strip()
         query_v2 = (data.get("bill_id_v2") or "").strip()
@@ -2082,15 +2082,30 @@ def amendment_diff():
         def _tokens(value: str):
             return [t for t in re.findall(r"[a-z0-9]+", (value or "").lower()) if t not in _FILLER]
 
+        def _doc_title(kind: str, obj):
+            return obj.title if kind in ("bill", "act") else obj.parent_title
+
+        def _doc_words(kind: str, obj):
+            """Words that identify a document, as a set. A statute's year is part of its name."""
+            if kind == "statute":
+                return set(_tokens(f"{obj.parent_title} {obj.parent_year or ''}"))
+            return set(_tokens(obj.title or ""))
+
         def _doc_id(kind: str, obj):
-            return getattr(obj, "bill_id" if kind == "bill" else "act_id", None)
+            if kind == "bill":
+                return obj.bill_id
+            if kind == "act":
+                return obj.act_id
+            return obj.parent_key
 
         def _doc_text(kind: str, obj):
-            return (obj.content.full_text if obj.content else None) if kind == "bill" else obj.full_text
+            if kind == "bill":
+                return obj.content.full_text if obj.content else None
+            return obj.full_text
 
         def _as_candidate(kind: str, obj):
-            return {"kind": kind, "id": _doc_id(kind, obj), "title": obj.title,
-                    "year": getattr(obj, "year", None)}
+            return {"kind": kind, "id": _doc_id(kind, obj), "title": _doc_title(kind, obj),
+                    "year": getattr(obj, "year", None) or getattr(obj, "parent_year", None)}
 
         def _split_error(message: str, candidates=()):
             payload = {"error": message}
@@ -2099,7 +2114,13 @@ def amendment_diff():
             return payload
 
         def _match_by_title(raw: str):
-            """Documents whose title contains every significant word the user typed."""
+            """Documents whose title carries every significant word the user typed.
+
+            Parent statutes are in the pool too: they are tracked as StatuteHistory rows,
+            whose title is stored WITHOUT its year ("Andhra Pradesh Reorganisation Act"),
+            so the year is matched as part of the name — that is the only way
+            "…reorganisation act 2014" reaches the 2014 statute rather than nothing.
+            """
             tokens = _tokens(raw)
             if len(tokens) < 2:
                 return []                      # too vague to resolve safely
@@ -2107,10 +2128,24 @@ def amendment_diff():
             hits = []
             for model, kind in ((Bill, "bill"), (Act, "act")):
                 for row in model.query.all():
-                    if row.title and set(tokens) <= set(_tokens(row.title)):
+                    if row.title and set(tokens) <= _doc_words(kind, row):
                         hits.append((kind, row))
-            # Prefer the kind the user named, then the shortest title (most specific).
-            hits.sort(key=lambda h: ((h[0] == "act") != wants_act, len(h[1].title or "")))
+            for row in StatuteHistory.query.all():
+                words = _doc_words("statute", row)
+                if words and set(tokens) <= words:
+                    hits.append(("statute", row))
+
+            def rank(hit):
+                kind, row = hit
+                # The stage the user named first; tracked documents before parent
+                # statutes; then the shortest title, which is the most specific.
+                return (
+                    (kind == "act") != wants_act if kind in ("bill", "act") else True,
+                    kind == "statute",
+                    len(_doc_title(kind, row) or ""),
+                )
+
+            hits.sort(key=rank)
             return hits
 
         def resolve(raw: str, position: str):
@@ -2134,6 +2169,14 @@ def amendment_diff():
                 act = Act.query.filter_by(act_id=raw).first()
                 if act is not None:
                     kind, obj = "act", act
+                else:
+                    # A parent statute's id is its parent_key ("andhra pradesh
+                    # reorganisation"). Accepting it exactly is what lets the Act page
+                    # link straight into a comparison with the statute it amends
+                    # without the ambiguity a bare title would carry.
+                    statute = StatuteHistory.query.filter_by(parent_key=raw).first()
+                    if statute is not None:
+                        kind, obj = "statute", statute
 
             if obj is None:
                 hits = _match_by_title(raw)
@@ -2143,7 +2186,7 @@ def amendment_diff():
                     # which _tokens drops, so identical token sets mean "same law, two
                     # stages": take the stage the user named instead of asking them to
                     # choose between two names for one thing.
-                    token_sets = {frozenset(_tokens(h[1].title)) for h in hits}
+                    token_sets = {frozenset(_doc_words(kind_of, row)) for kind_of, row in hits}
                     if len(token_sets) == 1:
                         hits = hits[:1]
                 if len(hits) == 1:
@@ -2159,16 +2202,24 @@ def amendment_diff():
                         f"{label} did not match a tracked bill or Act: \"{raw}\".{hint} "
                         f"Give the title as this dataset spells it, or the ID "
                         f"(e.g. the-andhra-pradesh-reorganisation-amendment-bill-2026). "
-                        f"Note only documents in this dataset can be diffed — a statute's "
-                        f"earlier parent Act is shown on its page under \"Statute history\" "
-                        f"but its own text is not stored here."), 404
+                        f"A statute an Act amends can be named too, e.g. "
+                        f"\"andhra pradesh reorganisation act 2014\". Only documents whose "
+                        f"text is stored here can be diffed."), 404
 
             text = _doc_text(kind, obj)
             if not text:
-                return kind, obj, None, obj.title, _split_error(
-                    f"{label} ({obj.title}) has no stored text to diff. "
+                name = _doc_title(kind, obj)
+                if kind == "statute":
+                    # Say which of the two possible reasons it is; a statute's text is
+                    # read from India Code on a maintenance run, not on page view.
+                    detail = ("its text has not been read from India Code yet"
+                              if (obj.parent_title or "").strip() else "it has no title to look up")
+                else:
+                    detail = "it has no stored text"
+                return kind, obj, None, name, _split_error(
+                    f"{label} ({name}) cannot be diffed: {detail}. "
                     f"Pass text_{position} in the request body to compare manually."), 422
-            return kind, obj, text, obj.title, None, 200
+            return kind, obj, text, _doc_title(kind, obj), None, 200
 
         # A side may be named (ID/title → resolved from the DB) or supplied as raw text.
         # Only resolve when something was actually named, so the text_v*/text-only path
@@ -2196,10 +2247,13 @@ def amendment_diff():
             bill_id_v2 = _doc_id(kind_v2, doc2)
             text_v2 = resolved_text2
 
-        # Validate text input lengths to prevent DoS
-        if text_v1 and len(text_v1) > 50000:
+        # Validate text input lengths to prevent DoS. This guards CALLER-SUPPLIED text:
+        # a document resolved from the DB is ours, already bounded by the maintenance run
+        # that stored it, and is legitimately larger than a request body should be (the
+        # Andhra Pradesh Reorganisation Act, 2014 is 206k characters).
+        if not resolved_text1 and text_v1 and len(text_v1) > 50000:
             return jsonify({"error": "The older document's text is too long. Maximum 50000 characters."}), 413
-        if text_v2 and len(text_v2) > 50000:
+        if not resolved_text2 and text_v2 and len(text_v2) > 50000:
             return jsonify({"error": "The newer document's text is too long. Maximum 50000 characters."}), 413
 
         if not text_v1:
@@ -2210,6 +2264,54 @@ def amendment_diff():
         # Run the pure-Python structural diff (no LLM cost)
         from services.amendment_service import diff_bills, diff_summary_text
         diff = diff_bills(text_v1, text_v2, title_v1=title_v1, title_v2=title_v2)
+
+        # A statute against an amending Act is not a like-for-like section diff: the
+        # statute side is a whole consolidated statute and the amendment side is the
+        # short instrument that changes a few of its sections. Reporting the arithmetic
+        # without saying that would read as "this Act removed 1,032 sections", which is
+        # false. So the comparison describes itself, and names the sections the Act
+        # actually targets where it says so in its own text.
+        comparison_note = None
+        named_sections = []
+        other_kind = (kind_v2 if kind_v1 == "statute" else kind_v1) if "statute" in (kind_v1, kind_v2) else None
+        # Only a statute-versus-instrument comparison needs the warning. Two statutes are
+        # whole texts on both sides, so their section counts ARE like for like.
+        if other_kind in ("bill", "act"):
+            statute_pos = "1" if kind_v1 == "statute" else "2"
+            other_pos = "2" if statute_pos == "1" else "1"
+            other_doc = doc2 if statute_pos == "1" else doc1
+            if other_kind == "act" and other_doc is not None:
+                try:
+                    for entry in json.loads(other_doc.amends or "[]"):
+                        named_sections.extend(entry.get("sections") or [])
+                except (ValueError, TypeError):
+                    named_sections = []
+            s = diff["stats"]
+            comparison_note = (
+                f"One side of this comparison is a whole statute and the other is an "
+                f"amending instrument, so the section counts are NOT a list of changes. "
+                f"Side {statute_pos} is the statute's own text as India Code holds it "
+                f"({s.get('v1_sections' if statute_pos == '1' else 'v2_sections', 0):,} "
+                f"numbered parts, {len(text_v1 if statute_pos == '1' else text_v2):,} "
+                f"characters); side {other_pos} is the amending instrument "
+                f"({s.get('v1_sections' if other_pos == '1' else 'v2_sections', 0)} "
+                f"sections, {len(text_v1 if other_pos == '1' else text_v2):,} characters). "
+                f"An amendment changes the provisions it names — it does not remove the "
+                f"statute's remaining sections, so read side {other_pos}'s sections as the "
+                f"provisions it inserts or substitutes."
+            )
+            if named_sections:
+                named_sections = sorted({str(x) for x in named_sections})
+                comparison_note += (
+                    f" This Act names section "
+                    f"{'s ' if len(named_sections) > 1 else ' '}"
+                    f"{', '.join(named_sections)} of the statute in its own text."
+                )
+            else:
+                comparison_note += " It does not name the sections it changes in the pages read."
+            # The narrative is generated from this diff dict, so it must carry the
+            # framing too — otherwise the model repeats the misleading arithmetic.
+            diff["comparison_note"] = comparison_note
 
         # Layer the LLM narrative on top
         import ai_service
@@ -2237,6 +2339,10 @@ def amendment_diff():
             "query_v2": query_v2,
             "title_v1": title_v1,
             "title_v2": title_v2,
+            # Set only when a whole statute was compared with an amending instrument —
+            # explains why the section counts are not a list of changes.
+            "comparison_note": comparison_note,
+            "named_sections": named_sections,
             "added_sections": _trim_sections(diff["added_sections"]),
             "removed_sections": _trim_sections(diff["removed_sections"]),
             "modified_sections": _trim_sections(diff["modified_sections"]),
