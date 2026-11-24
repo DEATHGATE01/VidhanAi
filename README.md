@@ -60,7 +60,7 @@
 Launch both backend (Flask :5000) and frontend (Vite :5173) with a single command:
 
 ### Windows (Batch — Double Click)
-Double-click [`start.bat`](file:///d:/internship/VidhanAi-main/start.bat) in the project root.
+Double-click [`start.bat`](start.bat) in the project root.
 
 ### Windows (PowerShell — Recommended)
 ```powershell
@@ -138,12 +138,12 @@ VidhanAi/
 
 ### Backend → Render.com (Free Tier)
 1. Connect repository to [Render.com](https://render.com).
-2. Create a new Web Service using [`render.yaml`](file:///d:/internship/VidhanAi-main/render.yaml).
+2. Create a new Web Service using [`render.yaml`](render.yaml).
 3. Set environment variable `GROQ_API_KEY` in the Render dashboard.
 
 ### Frontend → Vercel.com (Free Tier)
 1. Connect repository to [Vercel.com](https://vercel.com).
-2. Root directory: `frontend_new` (uses the root [`vercel.json`](file:///d:/internship/VidhanAi-main/vercel.json)).
+2. Root directory: `frontend_new` (uses the root [`vercel.json`](vercel.json)).
 3. All `/api/*` routes are automatically rewritten to your Render backend host.
 
 **Total monthly cost: $0.00**
