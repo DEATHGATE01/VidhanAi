@@ -6,7 +6,6 @@ build-backend = "setuptools.build_meta"
 name = "vidhanai-backend"
 version = "0.1.0"
 description = "VidhanAI Flask backend with RAG and multi-agent orchestration"
-readme = "../README.md"
 requires-python = ">=3.10,<3.14"
 dependencies = [
     "Flask==3.0.0",
